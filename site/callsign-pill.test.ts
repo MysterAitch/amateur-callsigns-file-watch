@@ -69,17 +69,24 @@ describe('callsignPillLink', { tags: ['ui'] }, () => {
   it('CallsignPill_WhenCallsignEmpty_ProducesLabelledBlankMarkerNotALink', () => {
     // A blank callsign has no per-callsign page; a link to callsign.html?c= is a
     // link to nowhere with an invisible label.
-    for (const blank of ['', '   ']) {
-      const pill = callsignPillLink(el, blank);
-      expect(pill.tagName).toBe('EM');
-      expect(pill.textContent).toBe('(blank)');
-      expect(pill.hasAttribute('href')).toBe(false);
-      expect(pill.className).toBe(`${CALLSIGN_CLASS} ${CALLSIGN_PILL_CLASS}-blank`);
-    }
+    // The class is the server's blank class (callsignField in
+    // src/ci/render/callsign.ts), so both sides style one thing.
+    const pill = callsignPillLink(el, '');
+    expect(pill.tagName).toBe('EM');
+    expect(pill.textContent).toBe('(blank)');
+    expect(pill.hasAttribute('href')).toBe(false);
+    expect(pill.className).toBe(`${CALLSIGN_CLASS} cs-blank`);
   });
 
-  it('CallsignPill_WhenGivenASiteRoot_ResolvesTheHrefAgainstItNotTheHostingPage', () => {
-    const pill = callsignPillLink(el, 'M7 TEE', {}, 'https://example.test/v0/');
+  it('CallsignPill_WhenCallsignIsOnlyWhitespace_IsNotCalledBlankAndStaysALink', () => {
+    // Agrees with the server's judgement: only the empty string is blank. A
+    // whitespace-only value is a damaged callsign, not an absent one.
+    const pill = callsignPillLink(el, ' ');
+    expect(pill.tagName).toBe('A');
+  });
+
+  it('CallsignPill_WhenGivenTheCallsignPageUrl_ResolvesTheHrefAgainstItNotTheHostingPage', () => {
+    const pill = callsignPillLink(el, 'M7 TEE', {}, 'https://example.test/v0/callsign.html');
     expect(pill.getAttribute('href')).toBe('https://example.test/v0/callsign.html?c=M7%20TEE');
   });
 });
@@ -124,7 +131,7 @@ describe('callsignPillRaw', { tags: ['ui'] }, () => {
     // rather than rendered as a chip with nothing in it.
     const pill = callsignPillRaw(el, '');
     expect(pill.textContent).toBe('(blank)');
-    expect(pill.className).toBe(`${CALLSIGN_CLASS} ${CALLSIGN_PILL_CLASS}-blank`);
+    expect(pill.className).toBe(`${CALLSIGN_CLASS} cs-blank`);
     expect(pill.querySelectorAll('.marker').length).toBe(0);
   });
 });

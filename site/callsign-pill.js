@@ -106,7 +106,7 @@ export function callsignPillTitle(callsign, components = {}) {
 // the field wrappers give a blank status or licence.
 /** @param {ElementFactory} el */
 function callsignPillBlank(el) {
-  return el('em', { class: `${CALLSIGN_CLASS} ${CALLSIGN_PILL_CLASS}-blank`, text: '(blank)' });
+  return el('em', { class: `${CALLSIGN_CLASS} cs-blank`, text: '(blank)' });
 }
 
 // A callsign rendered as a pill LINK to its canonical per-callsign page
@@ -118,25 +118,27 @@ function callsignPillBlank(el) {
 // the accessible name IS the callsign; any component data becomes the
 // supplementary title only.
 //
-// `siteRoot` is the absolute URL of the directory holding callsign.html, for a
-// page that is not itself at that directory: the default empty string leaves
-// the href relative to the hosting page, which is right only for a page beside
-// callsign.html. The per-dataset entry pages sit three directories below it, so
-// their bare relative href resolved under the entry's own directory and 404ed.
+// `callsignPage` is the URL of callsign.html itself, for a page that is not
+// beside it: the default leaves the href relative to the hosting page, which is
+// right only for a page in the same directory. The per-dataset entry pages sit
+// three directories below it, so their bare relative href resolved under the
+// entry's own directory and 404ed.
 //
-// A blank callsign (the register carries rows whose callsign cell is empty)
-// has no per-callsign page, so it is a labelled non-link, never a link to
-// callsign.html?c= with nothing to read.
+// Only an EMPTY callsign is blank, exactly as the server's callsignField
+// (src/ci/render/callsign.ts) judges it: a whitespace-only value is not "no
+// value" but a damaged one, and the raw column shows it with visible markers.
+// A blank has no per-callsign page, so it is a labelled non-link, never a link
+// to callsign.html?c= with nothing to read.
 /**
  * @param {ElementFactory} el
  * @param {string} callsign
  * @param {CallsignComponents} [components]
- * @param {string} [siteRoot]
+ * @param {string} [callsignPage]
  */
-export function callsignPillLink(el, callsign, components = {}, siteRoot = '') {
-  if (callsign.trim() === '') return callsignPillBlank(el);
+export function callsignPillLink(el, callsign, components = {}, callsignPage = 'callsign.html') {
+  if (callsign === '') return callsignPillBlank(el);
   /** @type {Record<string, string>} */
-  const attrs = { class: `${CALLSIGN_CLASS} ${CALLSIGN_PILL_CLASS}`, href: `${siteRoot}callsign.html?c=${encodeURIComponent(callsign)}`, text: callsign };
+  const attrs = { class: `${CALLSIGN_CLASS} ${CALLSIGN_PILL_CLASS}`, href: `${callsignPage}?c=${encodeURIComponent(callsign)}`, text: callsign };
   const title = callsignPillTitle(callsign, components);
   if (title !== null) attrs.title = title;
   return el('a', attrs);
