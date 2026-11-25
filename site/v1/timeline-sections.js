@@ -105,7 +105,7 @@ export function anchorIndex(data) {
 /**
  * The years this page reads "as at": the buckets up to and including the
  * anchor year, and none after it. Event dates run past the record's own as-at
- * instant – the live record states reservation-window ends as late as 2099 – so
+ * instant (the live record states reservation-window ends as late as 2099), so
  * an unbounded slider spent over a third of its travel on years the record
  * cannot yet be "as at", every one repeating the same starts figure. The slider,
  * the cumulative table, the embedded payload and the charts' drawn span all
@@ -117,7 +117,12 @@ export function anchorIndex(data) {
  * @returns {T}
  */
 export function boundToAsAt(data) {
-  const anchor = anchorIndex(data);
+  // Bound only when the as-at year is itself one of the years. A missing or
+  // malformed as-at, or one outside the span, says nothing about where the
+  // record's time stops, so every year stays; anchorIndex still chooses the
+  // year the slider opens on.
+  const anchorYear = (data.asAt || '').slice(0, 4);
+  const anchor = data.buckets.findIndex((b) => b.year === anchorYear);
   if (anchor === -1) return data;
   return { ...data, buckets: data.buckets.slice(0, anchor + 1) };
 }
@@ -513,9 +518,9 @@ const YEAR_PARAM = 'year';
 
 /**
  * The bucket the address asks for, or -1 when it names none, names something
- * that is not a year, or names a year outside the scrubbable span – each of
- * which opens on the as-at year exactly as an address without the parameter
- * would.
+ * that is not a year, or names a year outside the scrubbable span. In each of
+ * those cases the slider opens on the as-at year, exactly as it does for an
+ * address without the parameter.
  * @param {TimelineBucket[]} buckets
  * @param {Location | undefined} location
  * @returns {number}
@@ -569,32 +574,46 @@ export function buildScrubber(slot, data) {
   readout.parentElement?.insertBefore(wrap, readout);
 
   /** @type {ReturnType<typeof setTimeout> | undefined} */
-  let announceTimer;
+  let settleTimer;
   /** @param {TimelineBucket} bucket */
   const render = (bucket) => {
     fillReadout(readout, bucket, data);
     input.setAttribute('aria-valuetext', fill(copy.readoutAsAt, { year: bucket.year }));
+  };
+  /**
+   * Keep the settled year in the address. Written once a scrub settles rather
+   * than on every step: a full drag crosses over a hundred years in a second or
+   * two, and browsers throttle rapid history writes (WebKit throws a
+   * SecurityError past about a hundred in a short window). Replace rather than
+   * push, so Back does not step through every year dragged past. A refused
+   * write costs only the address; the readout and announcement stand.
+   * @param {TimelineBucket} bucket
+   */
+  const keepInAddress = (bucket) => {
+    if (view === undefined) return;
+    try {
+      const url = new URL(view.location.href);
+      url.searchParams.set(YEAR_PARAM, bucket.year);
+      view.history.replaceState(view.history.state, '', url.toString());
+    } catch {
+      // The address is a convenience; the page is already showing the year.
+    }
   };
   const show = () => {
     const idx = Math.min(Math.max(Number(input.value) | 0, 0), data.buckets.length - 1);
     const bucket = data.buckets[idx];
     if (bucket === undefined) return;
     render(bucket);
-    // Replace rather than push: a drag passes through dozens of years, and each
-    // one as a history entry would make Back step through them one at a time.
-    if (view !== undefined) {
-      const url = new URL(view.location.href);
-      url.searchParams.set(YEAR_PARAM, bucket.year);
-      view.history.replaceState(view.history.state, '', url.toString());
-    }
-    if (status === null) return;
-    clearTimeout(announceTimer);
-    announceTimer = setTimeout(() => {
-      status.textContent = fill(copy.scrubberAnnouncement, {
-        year: bucket.year,
-        starts: bucket.startsToDate.toLocaleString('en-GB'),
-        reservations: bucket.activeReservations.toLocaleString('en-GB'),
-      });
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => {
+      if (status !== null) {
+        status.textContent = fill(copy.scrubberAnnouncement, {
+          year: bucket.year,
+          starts: bucket.startsToDate.toLocaleString('en-GB'),
+          reservations: bucket.activeReservations.toLocaleString('en-GB'),
+        });
+      }
+      keepInAddress(bucket);
     }, ANNOUNCE_DELAY_MS);
   };
   input.addEventListener('input', show);

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   COMPONENT,
   renderStatic,
@@ -372,9 +372,9 @@ describe('v1 timeline — readout content', { tags: ['unit'] }, () => {
 });
 
 // A corpus whose record is "as at" 2020 but which also states events dated
-// after it – the shape of the live record, where reservation windows carry
+// after it. That is the shape of the live record, where reservation windows carry
 // stated ends in 2028, 2029 and 2099. Known answers, decided before the first
-// run: the scrubbable span is 2018–2020 (three years); the reservation chart
+// run: the scrubbable span is 2018 to 2020 (three years); the reservation chart
 // draws three bars and states the 57 events dated 2022 in words; its data table
 // still lists every year with events (2019, 2020 and 2022); its caption total
 // stays 61.
@@ -382,7 +382,7 @@ function makeFutureData() {
   return makeData({
     kinds: [
       { id: 'licence-version-original-start', label: 'licence-version start' },
-      { id: 'reserved-until', label: 'reservation window – stated end' },
+      { id: 'reserved-until', label: 'reservation window - stated end' },
     ],
     histograms: {
       'licence-version-original-start': [['2018', 2], ['2019', 0], ['2020', 5], ['2021', 0], ['2022', 0]],
@@ -404,7 +404,7 @@ function yearSeries(from: number, to: number): Array<[string, number]> {
   return out;
 }
 
-describe('v1 timeline — bounded by the record’s own as-at year', { tags: ['ui'] }, () => {
+describe('v1 timeline - bounded by the record’s own as-at year', { tags: ['ui'] }, () => {
   it('Slider_WhenEventsAreDatedAfterTheAsAtYear_StopsAtTheAsAtYear', () => {
     const surface = serveEnhanced(makeFutureData());
     const input = surface.querySelector<HTMLInputElement>('input[type=range]');
@@ -438,6 +438,20 @@ describe('v1 timeline — bounded by the record’s own as-at year', { tags: ['u
     expect(charts[0]?.querySelector('.hx-beyond')).toBeNull();
   });
 
+  it('Timeline_WhenTheAsAtDateIsMissing_DrawsAndOffersEveryYear', () => {
+    // Unhappy path: a manifest with no as-at says nothing about where the
+    // record's time stops, so nothing is cut. Known answer: all five years.
+    const surface = serveEnhanced({ ...makeFutureData(), asAt: '' });
+    expect(surface.querySelector<HTMLInputElement>('input[type=range]')?.max).toBe('4');
+    expect(surface.querySelector('.hx-beyond')).toBeNull();
+  });
+
+  it('Timeline_WhenTheAsAtYearPredatesEveryEvent_DrawsAndOffersEveryYear', () => {
+    const surface = serveEnhanced({ ...makeFutureData(), asAt: '2010-01-01' });
+    expect(surface.querySelector<HTMLInputElement>('input[type=range]')?.max).toBe('4');
+    expect(surface.querySelector('.hx-beyond')).toBeNull();
+  });
+
   it('Histogram_WhenNoEventIsDatedAfterTheAsAtYear_DrawsEveryYear', () => {
     const fig = renderHistogram('licence issued', [['2018', 2], ['2019', 0], ['2020', 5]], 7, '2020');
     expect(fig.querySelectorAll('.hx-bar')).toHaveLength(3);
@@ -445,11 +459,11 @@ describe('v1 timeline — bounded by the record’s own as-at year', { tags: ['u
   });
 });
 
-describe('v1 timeline — the chart year axis', { tags: ['ui'] }, () => {
+describe('v1 timeline - the chart year axis', { tags: ['ui'] }, () => {
   const axisYears = (fig: Element): string[] => [...fig.querySelectorAll('.hx-axis span')].map((s) => s.textContent ?? '');
 
   it('Histogram_OverTheLiveSpan_LabelsBothEndsAndRoundYearsBetween', () => {
-    // 1903–2026 is the live record's span. Known answer: both ends, then every
+    // 1903 to 2026 is the live record's span. Known answer: both ends, then every
     // quarter-century between, with 2025 dropped because it would collide with
     // the 2026 end label.
     const fig = renderHistogram('licence issued', yearSeries(1903, 2026), 1);
@@ -484,13 +498,13 @@ describe('v1 timeline — the chart year axis', { tags: ['ui'] }, () => {
   });
 });
 
-describe('v1 timeline — heading outline', { tags: ['ui'] }, () => {
+describe('v1 timeline - heading outline', { tags: ['ui'] }, () => {
   it('TimelinePage_ReadoutYear_IsTheLevelBelowThePageTitleRatherThanSkippingOne', () => {
     expect(serveStatic(makeData()).querySelector('[data-slot="year"]')?.tagName).toBe('H2');
   });
 });
 
-describe('v1 timeline — the year in the address', { tags: ['ui'] }, () => {
+describe('v1 timeline - the year in the address', { tags: ['ui'] }, () => {
   const openAt = (search: string): HTMLElement => {
     window.history.replaceState(null, '', `/timeline.html${search}`);
     return serveEnhanced(makeData());
@@ -503,15 +517,66 @@ describe('v1 timeline — the year in the address', { tags: ['ui'] }, () => {
     expect(norm(surface.querySelector('#tl-readout')?.textContent)).toContain('As at end of 2019');
   });
 
-  it('Scrubber_WhenMoved_RecordsTheYearInTheAddressWithoutAddingAHistoryEntry', () => {
-    const surface = openAt('');
-    const input = surface.querySelector<HTMLInputElement>('input[type=range]');
-    if (input === null) throw new Error('the enhanced surface carries no scrubber');
-    const entries = window.history.length;
-    input.value = '0';
-    input.dispatchEvent(new Event('input'));
-    expect(new URLSearchParams(window.location.search).get('year')).toBe('2018');
-    expect(window.history.length).toBe(entries);
+  it('Scrubber_WhenMoved_RecordsTheSettledYearInTheAddressWithoutAddingAHistoryEntry', () => {
+    vi.useFakeTimers();
+    try {
+      const surface = openAt('');
+      const input = surface.querySelector<HTMLInputElement>('input[type=range]');
+      if (input === null) throw new Error('the enhanced surface carries no scrubber');
+      const entries = window.history.length;
+      input.value = '0';
+      input.dispatchEvent(new Event('input'));
+      vi.runAllTimers();
+      expect(new URLSearchParams(window.location.search).get('year')).toBe('2018');
+      expect(window.history.length).toBe(entries);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('Scrubber_WhenDraggedThroughManyYearsAtOnce_WritesTheAddressOnceForTheYearItSettlesOn', () => {
+    // A full drag crosses over a hundred years in a second or two, and browsers
+    // throttle rapid history writes (WebKit refuses past about a hundred), so
+    // the address follows the settled year, not every step. Known answer: 150
+    // steps, one write, naming the last year.
+    vi.useFakeTimers();
+    const writes = vi.spyOn(window.history, 'replaceState');
+    try {
+      const surface = openAt('');
+      const input = surface.querySelector<HTMLInputElement>('input[type=range]');
+      if (input === null) throw new Error('the enhanced surface carries no scrubber');
+      writes.mockClear();
+      for (let i = 0; i < 150; i += 1) {
+        input.value = String(i % 3);
+        input.dispatchEvent(new Event('input'));
+      }
+      vi.runAllTimers();
+      expect(writes).toHaveBeenCalledTimes(1);
+      expect(new URLSearchParams(window.location.search).get('year')).toBe('2020');
+    } finally {
+      writes.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('Scrubber_WhenTheBrowserRefusesTheAddressWrite_StillShowsAndAnnouncesTheYear', () => {
+    vi.useFakeTimers();
+    const writes = vi.spyOn(window.history, 'replaceState').mockImplementation(() => {
+      throw new DOMException('history writes throttled', 'SecurityError');
+    });
+    try {
+      const surface = serveEnhanced(makeData());
+      const input = surface.querySelector<HTMLInputElement>('input[type=range]');
+      if (input === null) throw new Error('the enhanced surface carries no scrubber');
+      input.value = '0';
+      input.dispatchEvent(new Event('input'));
+      vi.runAllTimers();
+      expect(norm(surface.querySelector('#tl-readout')?.textContent)).toContain('As at end of 2018');
+      expect(surface.querySelector('.tl-status')?.textContent).toContain('As at end of 2018');
+    } finally {
+      writes.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   it('Scrubber_WhenTheAddressNamesAYearOutsideTheSpan_OpensOnTheAsAtYear', () => {
