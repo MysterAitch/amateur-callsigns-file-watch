@@ -108,10 +108,22 @@ jobs:
           branch="data/scc-$(date -u +%Y-%m-%d)"
 
           # If a review PR is already open for a prior refresh, do not stack a
-          # second one - the earlier one still needs reviewing first.
-          existing="$(gh pr list --state open --json number,headRefName --jq 'map(select(.headRefName | startswith("data/scc-"))) | .[0].number // ""')"
+          # second one - the earlier one still needs reviewing first. Only
+          # this repository's own count: a fork's pull request from a branch
+          # of the same name would otherwise hold every refresh back for as
+          # long as it stayed open. One left without an assignee was opened
+          # by a run that stopped before assigning it, so it is assigned
+          # here; data-sweep.yml carries the incident behind that.
+          existing="$(gh pr list --state open --json url,headRefName,isCrossRepository,assignees \
+            --jq 'map(select((.isCrossRepository | not) and (.headRefName | startswith("data/scc-")))) | .[0] // empty | [.url, (.assignees | length)] | @tsv')"
           if [ -n "$existing" ]; then
-            echo "An SCC refresh PR (#$existing) is already open; leaving it for review rather than stacking another."
+            pr_url="${existing%%$'\t'*}"
+            if [ "${existing##*$'\t'}" = "0" ]; then
+              echo "::warning::$pr_url is open but has no assignee; assigning it now."
+              assignee="$(gh api "repos/$GITHUB_REPOSITORY" --jq .owner.login)"
+              gh pr edit "$pr_url" --add-assignee "$assignee" || echo "::warning::Could not assign $pr_url to $assignee."
+            fi
+            echo "An SCC refresh PR ($pr_url) is already open; leaving it for review rather than stacking another."
             exit 0
           fi
 
@@ -126,10 +138,21 @@ jobs:
           # markdown, not a command substitution.
           # shellcheck disable=SC2016
           body="$(printf 'Scheduled refresh of the RSGB Special Contest Calls derived table (cite-don'\''t-copy, issue #693).\n\n```\n%s\n```\n\nReference data is reviewed like code: this PR is for human review, not auto-merge.' "$SUMMARY")"
-          pr_url="$(gh pr create --head "$branch" --base main \
+          if pr_url="$(gh pr create --head "$branch" --base main \
             --title "data(scc): refresh RSGB Special Contest Calls table" \
-            --body "$body")"
-          echo "Opened $pr_url"
+            --body "$body")"; then
+            echo "Opened $pr_url"
+          else
+            # A failed create is not proof that nothing was created, so look
+            # before giving up.
+            pr_url="$(gh pr list --head "$branch" --state open --json url,headRefName,isCrossRepository \
+              --jq 'map(select((.isCrossRepository | not) and .headRefName == "'"$branch"'")) | .[0].url // empty')"
+            if [ -z "$pr_url" ]; then
+              echo "::error::Could not open a pull request for $branch."
+              exit 1
+            fi
+            echo "::warning::Creating the pull request for $branch reported a failure, but $pr_url exists; continuing with it."
+          fi
 
           assignee="$(gh api "repos/$GITHUB_REPOSITORY" --jq .owner.login)"
           gh pr edit "$pr_url" --add-assignee "$assignee" || echo "::warning::Could not assign $pr_url to $assignee."
