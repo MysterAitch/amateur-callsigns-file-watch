@@ -102,6 +102,88 @@ export function anchorIndex(data) {
   return anchorYear < data.buckets[0].year ? 0 : data.buckets.length - 1;
 }
 
+/**
+ * The years this page reads "as at": the buckets up to and including the
+ * anchor year, and none after it. Event dates run past the record's own as-at
+ * instant – the live record states reservation-window ends as late as 2099 – so
+ * an unbounded slider spent over a third of its travel on years the record
+ * cannot yet be "as at", every one repeating the same starts figure. The slider,
+ * the cumulative table, the embedded payload and the charts' drawn span all
+ * take their bound from here, so they cannot disagree about where time stops.
+ * Events dated after the bound are not dropped: each chart states them in words
+ * and its data table lists them (renderHistogram).
+ * @template {{ asAt: string, buckets: TimelineBucket[] }} T
+ * @param {T} data
+ * @returns {T}
+ */
+export function boundToAsAt(data) {
+  const anchor = anchorIndex(data);
+  if (anchor === -1) return data;
+  return { ...data, buckets: data.buckets.slice(0, anchor + 1) };
+}
+
+// How many labels an axis may carry between its two ends, and the narrowest gap
+// (as a share of the track) a label may keep from an end label. At the narrowest
+// supported width the track is under 300 px, where a four-digit year needs
+// roughly a tenth of it; anything closer than this overlaps its neighbour.
+const AXIS_MAX_INTERIOR = 5;
+const AXIS_MIN_GAP = 0.12;
+const AXIS_STEPS = [1, 2, 5, 10, 20, 25, 50, 100];
+
+/**
+ * The years an axis over `years` labels: both ends, then round years between at
+ * the smallest step that keeps the interior labels to a handful, dropping any
+ * that would sit on top of an end label.
+ * @param {string[]} years  consecutive years, ascending
+ * @returns {{ year: string, index: number }[]}
+ */
+function axisTicks(years) {
+  if (years.length === 0) return [];
+  const first = Number(years[0]);
+  const last = Number(years[years.length - 1]);
+  if (years.length === 1) return [{ year: years[0], index: 0 }];
+  const span = last - first;
+  const step = AXIS_STEPS.find((s) => span / s <= AXIS_MAX_INTERIOR + 1) ?? AXIS_STEPS[AXIS_STEPS.length - 1];
+  /** @type {{ year: string, index: number }[]} */
+  const ticks = [{ year: years[0], index: 0 }];
+  for (let y = Math.ceil((first + 1) / step) * step; y < last; y += step) {
+    const share = (y - first) / span;
+    if (share < AXIS_MIN_GAP || 1 - share < AXIS_MIN_GAP) continue;
+    ticks.push({ year: String(y), index: y - first });
+  }
+  ticks.push({ year: years[years.length - 1], index: years.length - 1 });
+  return ticks;
+}
+
+/**
+ * The year axis under a chart. Each label sits at the centre of its year's bar,
+ * as a share of the track, so it stays under that bar at every width; the end
+ * labels align to the track's edges rather than centring past them. Hidden from
+ * assistive technology: the chart's accessible name states its span and the data
+ * table carries every figure, so reading the tick labels out would only repeat.
+ * @param {string[]} years
+ * @returns {HTMLElement | null}
+ */
+function renderAxis(years) {
+  const ticks = axisTicks(years);
+  if (ticks.length === 0) return null;
+  const axis = el('div', 'hx-axis');
+  axis.setAttribute('aria-hidden', 'true');
+  for (const { year, index } of ticks) {
+    const label = el('span', null, year);
+    if (index === 0) {
+      label.className = 'hx-axis-start';
+    } else if (index === years.length - 1) {
+      label.className = 'hx-axis-end';
+    } else {
+      const centre = ((index + 0.5) / years.length) * 100;
+      label.style.left = `${Number(centre.toFixed(3))}%`;
+    }
+    axis.appendChild(label);
+  }
+  return axis;
+}
+
 // ---------------------------------------------------------------------------
 // The per-instant readout. The skeleton is emitted ONCE by the static render;
 // every year — the anchor year at build, each scrubbed year in the browser —
@@ -114,7 +196,9 @@ export function anchorIndex(data) {
 // elements, never inserts from nothing (ADR 0022's content-vs-command
 // protocol: null is a reversible hide at runtime, never a removal).
 const READOUT_SLOTS = /** @type {const} */ ([
-  ['year', 'h3', 'tl-year'],
+  // The level directly below the page's h1: the readout year is the first
+  // heading in the page body, so anything deeper would skip a level.
+  ['year', 'h2', 'tl-year'],
   ['starts', 'p', 'tl-figure'],
   ['reservations', 'p', 'tl-figure'],
   ['activity', 'p', 'tl-figure'],
@@ -423,6 +507,26 @@ export function decodeReadoutData(json) {
 // slider does not queue one announcement per step.
 const ANNOUNCE_DELAY_MS = 400;
 
+// The address parameter that keeps the scrubbed year, so a year can be linked,
+// bookmarked and survive a reload.
+const YEAR_PARAM = 'year';
+
+/**
+ * The bucket the address asks for, or -1 when it names none, names something
+ * that is not a year, or names a year outside the scrubbable span – each of
+ * which opens on the as-at year exactly as an address without the parameter
+ * would.
+ * @param {TimelineBucket[]} buckets
+ * @param {Location | undefined} location
+ * @returns {number}
+ */
+function requestedIndex(buckets, location) {
+  if (location === undefined) return -1;
+  const wanted = new URLSearchParams(location.search).get(YEAR_PARAM);
+  if (wanted === null || !/^\d{4}$/.test(wanted)) return -1;
+  return buckets.findIndex((b) => b.year === wanted);
+}
+
 /**
  * Add the year slider ABOVE the readout the static render already carries, and
  * wire it to refill that readout in place. Nothing is cleared and nothing is
@@ -456,19 +560,33 @@ export function buildScrubber(slot, data) {
   input.min = '0';
   input.max = String(Math.max(data.buckets.length - 1, 0));
   input.step = '1';
-  input.value = String(Math.max(anchorIndex(data), 0));
+  const view = slot.ownerDocument.defaultView ?? undefined;
+  const requested = requestedIndex(data.buckets, view?.location);
+  const opening = requested !== -1 ? requested : Math.max(anchorIndex(data), 0);
+  input.value = String(opening);
   input.setAttribute('aria-label', copy.scrubberLabel);
   wrap.appendChild(input);
   readout.parentElement?.insertBefore(wrap, readout);
 
   /** @type {ReturnType<typeof setTimeout> | undefined} */
   let announceTimer;
+  /** @param {TimelineBucket} bucket */
+  const render = (bucket) => {
+    fillReadout(readout, bucket, data);
+    input.setAttribute('aria-valuetext', fill(copy.readoutAsAt, { year: bucket.year }));
+  };
   const show = () => {
     const idx = Math.min(Math.max(Number(input.value) | 0, 0), data.buckets.length - 1);
     const bucket = data.buckets[idx];
     if (bucket === undefined) return;
-    fillReadout(readout, bucket, data);
-    input.setAttribute('aria-valuetext', fill(copy.readoutAsAt, { year: bucket.year }));
+    render(bucket);
+    // Replace rather than push: a drag passes through dozens of years, and each
+    // one as a history entry would make Back step through them one at a time.
+    if (view !== undefined) {
+      const url = new URL(view.location.href);
+      url.searchParams.set(YEAR_PARAM, bucket.year);
+      view.history.replaceState(view.history.state, '', url.toString());
+    }
     if (status === null) return;
     clearTimeout(announceTimer);
     announceTimer = setTimeout(() => {
@@ -480,11 +598,14 @@ export function buildScrubber(slot, data) {
     }, ANNOUNCE_DELAY_MS);
   };
   input.addEventListener('input', show);
-  // Set aria-valuetext without announcing: the page has not changed yet, and
-  // the readout on screen is already the one the static HTML carried.
-  input.setAttribute('aria-valuetext', fill(copy.readoutAsAt, {
-    year: data.buckets[Math.max(anchorIndex(data), 0)]?.year ?? '',
-  }));
+  // Open without announcing: the reader has not moved anything yet. On the
+  // as-at year the readout on screen is already the one the static HTML
+  // carried; an address naming another year refills it once, silently.
+  const openingBucket = data.buckets[opening];
+  if (openingBucket !== undefined) {
+    if (requested !== -1) render(openingBucket);
+    else input.setAttribute('aria-valuetext', fill(copy.readoutAsAt, { year: openingBucket.year }));
+  }
   return { input, readout };
 }
 
@@ -492,15 +613,21 @@ export function buildScrubber(slot, data) {
 // The static per-kind histograms (the substance, complete without interaction).
 
 /**
- * A CSS bar chart over one kind's [year, count] series, with a data table as
- * the accessible, complete content beneath. Colour is never the sole cue — the
- * table carries every figure.
+ * A CSS bar chart over one kind's [year, count] series, with a year axis and a
+ * data table as the accessible, complete content beneath. Colour is never the
+ * sole cue — the table carries every figure.
+ *
+ * Bars are drawn up to `lastYear` (the record's as-at year, boundToAsAt) and no
+ * further. Events dated after it are still counted in the caption total, listed
+ * in the data table, and stated in a line under the chart, so the drawn span
+ * never silently disagrees with the total above it.
  * @param {string} kindLabel
  * @param {Array<[string, number]>} series
  * @param {number} total
+ * @param {string} [lastYear]  the last year to draw; omitted, every year is drawn
  * @returns {HTMLElement}
  */
-export function renderHistogram(kindLabel, series, total) {
+export function renderHistogram(kindLabel, series, total, lastYear) {
   const copy = V1_COPY.history.timeline;
   const fig = el('figure', 'hx-chart');
   const cap = el('figcaption');
@@ -508,11 +635,15 @@ export function renderHistogram(kindLabel, series, total) {
   cap.appendChild(el('span', 'hx-total', fill(copy.histogramTotal, { count: total.toLocaleString('en-GB') })));
   fig.appendChild(cap);
 
-  const max = series.reduce((m, [, n]) => (n > m ? n : m), 0);
+  const drawn = lastYear === undefined ? series : series.filter(([year]) => year <= lastYear);
+  const beyond = lastYear === undefined ? [] : series.filter(([year, n]) => year > lastYear && n > 0);
+
+  const max = drawn.reduce((m, [, n]) => (n > m ? n : m), 0);
   const bars = el('div', 'hx-bars');
   bars.setAttribute('role', 'img');
-  bars.setAttribute('aria-label', `${kindLabel}: ${total.toLocaleString('en-GB')} dated events by year (figures in the table below)`);
-  for (const [year, n] of series) {
+  const span = drawn.length === 0 ? '' : ` from ${drawn[0][0]} to ${drawn[drawn.length - 1][0]}`;
+  bars.setAttribute('aria-label', `${kindLabel}: ${total.toLocaleString('en-GB')} dated events by year${span} (figures in the table below)`);
+  for (const [year, n] of drawn) {
     const col = el('div', 'hx-bar');
     const fillEl = el('div', 'hx-bar-fill');
     fillEl.style.height = max > 0 ? `${Math.round((n / max) * 100)}%` : '0';
@@ -523,7 +654,16 @@ export function renderHistogram(kindLabel, series, total) {
   }
   const wrap = el('div', 'hx-bars-wrap');
   wrap.appendChild(bars);
+  const axis = renderAxis(drawn.map(([year]) => year));
+  if (axis !== null) wrap.appendChild(axis);
   fig.appendChild(wrap);
+
+  if (beyond.length > 0 && lastYear !== undefined) {
+    fig.appendChild(el('p', 'note hx-beyond', fill(copy.histogramBeyond, {
+      year: lastYear,
+      list: beyond.map(([year, n]) => `${n.toLocaleString('en-GB')} in ${year}`).join(', '),
+    })));
+  }
 
   const details = el('details', 'hx-data');
   details.appendChild(el('summary', null, 'Data table (the years with events behind the chart)'));
@@ -611,8 +751,10 @@ export function renderStatic(data) {
     return surface;
   }
 
-  const embedded = encodeReadoutData(data);
-  const readoutData = decodeReadoutData(embedded) ?? data;
+  const bounded = boundToAsAt(data);
+  const lastYear = bounded.buckets[bounded.buckets.length - 1]?.year;
+  const embedded = encodeReadoutData(bounded);
+  const readoutData = decodeReadoutData(embedded) ?? bounded;
   surface.setAttribute(EMBEDDED_ATTRIBUTE, embedded);
 
   // The readout first (the surface's lede figure), then the charts and
@@ -642,11 +784,11 @@ export function renderStatic(data) {
   surface.appendChild(chartsLbl);
   surface.appendChild(el('p', 'note', copy.histogramsNote));
   for (const kind of data.kinds) {
-    surface.appendChild(renderHistogram(kind.label, data.histograms[kind.id] ?? [], data.totals[kind.id] ?? 0));
+    surface.appendChild(renderHistogram(kind.label, data.histograms[kind.id] ?? [], data.totals[kind.id] ?? 0, lastYear));
   }
 
   surface.appendChild(el('div', 'lbl', copy.cumulativeLabel));
-  surface.appendChild(renderCumulativeTable(data));
+  surface.appendChild(renderCumulativeTable(bounded));
 
   return surface;
 }
