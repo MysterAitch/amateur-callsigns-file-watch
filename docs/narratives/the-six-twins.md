@@ -4,6 +4,13 @@
 first surprise to a labelled, testable hypothesis. It is a story about
 record-keeping mechanics, not about the people who hold these callsigns.*
 
+> **Read this as an account of the register as it stood at 23 June 2026.** Its
+> counts and statuses are those of the snapshots named beside them, the newest
+> being [2026-06-23](../../archive/2026-06-23/raw.csv). A later publication,
+> [2026-09-22](../../archive/2026-09-22/raw.csv), holds the same six pairs with
+> the same statuses, and two further pairs besides. What it adds is set out in
+> [Follow-up: what the 2026-09-22 publication shows](#follow-up-what-the-2026-09-22-publication-shows).
+
 Every claim below carries one of three tags — **[observed]**, **[derived]**,
 or **[hypothesis]** — so you can tell at a glance what kind of statement it is
 and check it yourself. Select any tag to see its full definition in the
@@ -24,7 +31,7 @@ own cleaned key and they collide on `G6FMU`.
 
 **[observed]** In the 23 June 2026 snapshot there are **six** such cleaned-key groups
 (twelve rows in total), and the **same six callsigns** appear in every snapshot
-checked back to 30 May 2022 — roughly four years. These are long-lived features
+checked (the four tabulated below) back to 30 May 2022 — roughly four years. These are long-lived features
 of the published register, republished unchanged, not one-off noise.
 
 **[derived]** In most of these pairs the *oddly-shaped* member — the one carrying an
@@ -36,7 +43,7 @@ tidy form would be the "real" one.
 **[hypothesis]** One recorded explanation — clearly a hypothesis, not a finding — is
 that the malformed row may be the genuinely-issued licence, with the clean
 canonical form deliberately held back to stop it being handed out twice. The
-latest snapshot is consistent with this for two of the three UK pairs; the
+23 June 2026 snapshot is consistent with this for two of the three UK pairs; the
 third, `G6FMU`, is the interesting exception.
 
 The mirror does not pick a winner. Both rows are always kept and the
@@ -131,7 +138,8 @@ throughout:
 
 **[derived]** The six callsigns above appear in all four snapshots — four years of
 republication with the twin intact. The 2025-04-08 snapshot carries one extra,
-transient group (`M/MKG4BZB` / `M/M#KG4BZB`) that appears in that snapshot alone.
+transient group (`M/MKG4BZB` / `M/M#KG4BZB`) that appears in that snapshot alone
+among these four.
 So the population is stable and small: twin rows are the rare exception across
 ~158,000 rows, and the members are a handful of individual callsigns rather than
 a systemic pattern.
@@ -184,7 +192,7 @@ callsign, with the register's clean canonical form deliberately parked as
 `Reserved` so the same callsign cannot be issued a second time. Under that
 reading the odd twin is "the licence" and the tidy twin is "the guard".
 
-**[observed]** The latest snapshot's own statuses are consistent with this for two of
+**[observed]** The 23 June 2026 snapshot's own statuses are consistent with this for two of
 the three UK pairs, and pointedly *not* for the third:
 
 - [`G7IWE`](https://mysteraitch.github.io/amateur-callsigns-file-watch/callsign.html?c=G7IWE)
@@ -211,6 +219,97 @@ free. The `G6FMU` case (clean form marked `Available`) is the most informative
 place to look. This is an avenue for checking the record-keeping mechanics, and
 is framed as such — an observation about published data and a question about
 process, not a claim about any individual.
+
+---
+
+## Follow-up: what the 2026-09-22 publication shows
+
+*Added November 2026. Everything above this heading describes the snapshots
+held up to 2026-06-23. This section adds the next one and changes none of the
+counts above.*
+
+**[observed]** Grouping
+[`archive/2026-09-22/raw.csv`](../../archive/2026-09-22/raw.csv) (163,342 data
+rows) by cleaned key gives **eight** groups of more than one row, sixteen rows
+in total, of which **three** disagree on status. No `normalised.csv` is
+committed for this publication, so the grouping is over the `Callsign` column
+of the raw file. No raw callsign occurs twice in it, so every one of the eight
+is a pair of *different* tokens, as the six are.
+
+**[observed]** The six pairs above are all present, and each of their twelve
+rows carries the same status and the same product as in 2026-06-23. The
+hypothesis section therefore reads the same against September as against
+June: `G7IWE` and `G0TQK` as described, `G6FMU` still the exception, its clean
+form `Available` beside an `Allocated` embedded-space twin.
+
+**[observed]** The two further pairs:
+
+| cleaned key | raw tokens (status in 2026-09-22) | seen before as a pair |
+|---|---|---|
+| `M/MKG4BZB` | `M/MKG4BZB`: Reserved · `M/M#KG4BZB`: Reserved | 2025-04-08 and 2025-06-04, where the `#` form was `Allocated` |
+| `20MVL` | `20MVL`: Reserved · `2#0MVL`: no status | 2025-11-11 and 2026-01-14, with the same statuses |
+
+**[observed]** `M/MKG4BZB` is the group this page calls transient. In
+2026-06-23 neither of its tokens is listed; in 2026-09-22 both are. The
+`20MVL` pair is the third to disagree on status, and it disagrees in a way
+none of the six does: one row is `Reserved` and the other states no status at
+all. `2#0MVL` is one of the blank-status callsigns followed in
+["The vanished cohort"](the-vanished-cohort.md), which is absent from
+2026-06-23 and listed again here.
+
+**[observed]** The persistence table above samples four snapshots. Three
+other declared-complete vintages were held when it was written, and the six
+do not all appear as pairs in them:
+
+| snapshot | pairs of different tokens | which |
+|---|---:|---|
+| [2025-06-04](../../archive/2025-06-04/normalised.csv) | 4 | `M/EI8DJ`, `M/PT2FM`, `M/VK4VGK`, `M/MKG4BZB` |
+| [2025-11-11](../../archive/2025-11-11/normalised.csv) | 3 | `G6FMU`, `G0TQK`, `20MVL` |
+| [2026-01-14](../../archive/2026-01-14/normalised.csv) | 3 | `G6FMU`, `G0TQK`, `20MVL` |
+
+In each of the three, every one of the six that is not a pair is either a
+single row or absent. So "the same six" holds for the four snapshots
+tabulated and for 2026-09-22, and not for these three. Two of the three,
+2025-06-04 and 2026-01-14, are already documented as leaving categories of
+row out (`docs/source-register.md`); whether that accounts for the members
+missing from them is not examined here.
+
+**[observed]** Those two later vintages also need a distinction the six never
+raised. 2025-11-11 repeats 213 raw callsigns exactly, and 2026-01-14 repeats
+194: the same token on two or three rows, every one `Allocated`. Applying the
+grouping rule as written counts those too (216 and 197 groups). They are
+repeated rows, not twins: a twin is two *different* tokens that clean to one
+key. Neither 2026-06-23 nor 2026-09-22 repeats any raw callsign.
+
+**[observed]** Two cautions from above read differently against September.
+
+- **The odd characters.** In `archive/2026-09-22/raw.csv` the non-breaking
+  space after `G7IWE` and `G0TQK` is the single byte `A0`, and the file has no
+  byte-order mark; 2026-06-23 carries the same character as the two-byte
+  UTF-8 sequence `C2 A0`. Read as UTF-8, the September byte comes out as a
+  replacement character, not as `U+00A0`. The cleaning rule drops it either
+  way, so the grouping is unaffected, but confirming *which* character it is
+  means reading the bytes.
+- **The dates.** The "exactly the `Allocated` rows and no others" pattern is
+  particular to 2026-06-23. In 2026-09-22 the licence-version modification
+  date is present on 105,314 of 105,315 `Allocated` rows and on 6 of 57,420
+  `Reserved` rows, and on none of the 592 `Available` rows or the 15 rows
+  with no status.
+
+**[derived]** Eight pairs across 163,342 rows leaves the conclusion below
+where it was: twin rows are the rare exception. What September changes is the
+word "six", which is a count of the 2026-06-23 snapshot and of the four
+tabulated, not a fixed membership.
+
+To re-run the September grouping against the committed file:
+
+```
+node -e "const fs=require('fs');const m=new Map();for(const l of fs.readFileSync('archive/2026-09-22/raw.csv','latin1').split(/\r?\n/).slice(1)){if(!l)continue;const f=l.split(',');const k=f[0].toUpperCase().replace(/[^A-Z0-9/]/g,'');m.set(k,[...(m.get(k)||[]),f]);}for(const [k,r] of m)if(r.length>1)console.log(k,r.map(f=>JSON.stringify(f[0])+' '+(f[2]||'(no status)')).join(' | '));"
+```
+
+It prints eight lines, one per group. The file holds no quoted fields, so
+splitting on commas is safe for it; `latin1` is what turns the byte `A0` into
+`U+00A0`.
 
 ---
 
@@ -256,7 +355,8 @@ alongside in each snapshot's `raw.csv`.
   ([tracker](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/292)).
 - The recency/normality annotation refinement for conflict display: **issue #633**.
 
-*Observations were re-derived from the archived snapshots for this write-up. The
-statuses, dates and tokens quoted are those published by the source; they change
+*Observations were re-derived from the archived snapshots for this write-up, up
+to 2026-06-23, with 2026-09-22 added in the follow-up section. The statuses,
+dates and tokens quoted are those published by the source; they change
 between snapshots and should be read fresh from the per-callsign pages linked
 above.*

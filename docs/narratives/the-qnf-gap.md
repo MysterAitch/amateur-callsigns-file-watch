@@ -183,7 +183,7 @@ suffixes, no prefix attached
 ([`archive/foi/wdtk-596532--allocated-reserved-forbidden/normalised--sheet-1-all-callsigns-on-record.csv`](../../archive/foi/wdtk-596532--allocated-reserved-forbidden/normalised--sheet-1-all-callsigns-on-record.csv)
 and its sibling
 [`normalised--sheet-2-forbidden-call-signs.csv`](../../archive/foi/wdtk-596532--allocated-reserved-forbidden/normalised--sheet-2-forbidden-call-signs.csv)).
-Every register export this mirror holds since — including the live 23 June
+Every register export this mirror holds since — including the 23 June
 2026 snapshot,
 [`archive/2026-06-23/normalised.csv`](../../archive/2026-06-23/normalised.csv) —
 carries only those three ordinary status values. `Forbidden` as a status
