@@ -11,12 +11,16 @@ import { JSDOM } from 'jsdom';
 // went on reading the previous one while still calling it current. These tests
 // take the query out of the page as a reader would copy it, run it over a
 // small database built in the published schema's shape, and check that it
-// follows the newest held publication as publications are added.
+// follows the newest complete publication - complete in the site's own sense
+// (site/app.js and site/compare.js: declared complete and no coverage-affecting
+// observation) - as publications are added.
+
+function pageDocument(): Document {
+  return new JSDOM(fs.readFileSync(path.join('site', 'explore.html'), 'utf8')).window.document;
+}
 
 function cohortQueryFromPage(): string {
-  const html = fs.readFileSync(path.join('site', 'explore.html'), 'utf8');
-  const doc = new JSDOM(html).window.document;
-  const blocks = [...doc.querySelectorAll('pre code')].map((el) => el.textContent ?? '');
+  const blocks = [...pageDocument().querySelectorAll('pre code')].map((el) => el.textContent ?? '');
   const cohort = blocks.filter((sql) => sql.includes('ref_forbidden_suffixes') && sql.includes('register_history'));
   expect(cohort, 'the forbidden-suffix cohort example on explore.html').toHaveLength(1);
   return cohort[0];
@@ -25,6 +29,7 @@ function cohortQueryFromPage(): string {
 interface Publication {
   dataset: string;
   intendedComplete: 'true' | 'false' | '';
+  coverageAffecting?: string;
   callsigns: string[];
 }
 
@@ -37,7 +42,7 @@ function databaseHolding(publications: Publication[], inTheAugust2019Snapshot: s
   db.exec('CREATE TABLE observations (entry TEXT, cleaned TEXT)');
   db.prepare('INSERT INTO ref_forbidden_suffixes VALUES (?)').run('QNF');
   for (const p of publications) {
-    db.prepare('INSERT INTO history_datasets VALUES (?, ?, ?, ?, ?)').run(p.dataset, String(p.callsigns.length), p.intendedComplete, '', '');
+    db.prepare('INSERT INTO history_datasets VALUES (?, ?, ?, ?, ?)').run(p.dataset, String(p.callsigns.length), p.intendedComplete, '', p.coverageAffecting ?? '');
     for (const callsign of p.callsigns) {
       db.prepare('INSERT INTO register_history VALUES (?, ?, ?, ?, ?, ?)').run(p.dataset, callsign, callsign, callsign.slice(-3), 'Allocated', '2020-01-01');
     }
@@ -48,8 +53,8 @@ function databaseHolding(publications: Publication[], inTheAugust2019Snapshot: s
   return db;
 }
 
-function cohort(db: DatabaseSync): string[] {
-  return db.prepare(cohortQueryFromPage()).all().map((row) => String(row.callsign));
+function cohort(db: DatabaseSync): { dataset: string; callsign: string }[] {
+  return db.prepare(cohortQueryFromPage()).all().map((row) => ({ dataset: String(row.dataset), callsign: String(row.callsign) }));
 }
 
 const JUNE: Publication = { dataset: '2026-06-23', intendedComplete: 'true', callsigns: ['G0QNF', 'G4ABC'] };
@@ -57,26 +62,41 @@ const SEPTEMBER: Publication = { dataset: '2026-09-22', intendedComplete: 'true'
 
 describe('Explore page - the current-register cohort example', { tags: ['unit'] }, () => {
   it('CohortExample_WhenSeptemberIsTheNewestPublication_ReadsSeptemberNotJune', () => {
-    expect(cohort(databaseHolding([JUNE, SEPTEMBER], []))).toEqual(['M7QNF']);
+    expect(cohort(databaseHolding([JUNE, SEPTEMBER], []))).toEqual([{ dataset: '2026-09-22', callsign: 'M7QNF' }]);
   });
 
   it('CohortExample_WhenALaterPublicationLands_FollowsItWithoutAnEdit', () => {
     const december: Publication = { dataset: '2026-12-15', intendedComplete: 'true', callsigns: ['2E0QNF'] };
-    expect(cohort(databaseHolding([JUNE, SEPTEMBER, december], []))).toEqual(['2E0QNF']);
+    expect(cohort(databaseHolding([JUNE, SEPTEMBER, december], []))).toEqual([{ dataset: '2026-12-15', callsign: '2E0QNF' }]);
   });
 
   it('CohortExample_WhenTheNewestPublicationIsADeclaredTruncation_KeepsTheNewestCompleteOne', () => {
     // Ofcom has published 1,074-row truncations of a ~150k register; one of
     // those is not "the current register" even when it is the newest held.
     const truncated: Publication = { dataset: '2026-12-15', intendedComplete: 'false', callsigns: ['2E0QNF'] };
-    expect(cohort(databaseHolding([JUNE, SEPTEMBER, truncated], []))).toEqual(['M7QNF']);
+    expect(cohort(databaseHolding([JUNE, SEPTEMBER, truncated], []))).toEqual([{ dataset: '2026-09-22', callsign: 'M7QNF' }]);
   });
 
-  it('CohortExample_WhenTheNewestPublicationDeclaresNoCoverage_StillTakesIt', () => {
-    // A publication that declares nothing about its coverage is not a declared
-    // truncation, so it is the current register.
+  it('CohortExample_WhenTheNewestPublicationCarriesACoverageAffectingObservation_KeepsTheNewestCompleteOne', () => {
+    // 2025-06-04 declared itself complete but silently omitted ~45k records;
+    // the site does not treat such a publication as complete, and nor does the
+    // example.
+    const filtered: Publication = { dataset: '2026-12-15', intendedComplete: 'true', coverageAffecting: 'blank-product rows omitted', callsigns: ['2E0QNF'] };
+    expect(cohort(databaseHolding([JUNE, SEPTEMBER, filtered], []))).toEqual([{ dataset: '2026-09-22', callsign: 'M7QNF' }]);
+  });
+
+  it('CohortExample_WhenTheNewestPublicationDeclaresNoCoverage_KeepsTheNewestCompleteOne', () => {
+    // Undeclared scope is not complete in the site's sense, so an undeclared
+    // newest publication is passed over, as the timeline passes over its absences.
     const undeclared: Publication = { dataset: '2026-12-15', intendedComplete: '', callsigns: ['2E0QNF'] };
-    expect(cohort(databaseHolding([JUNE, SEPTEMBER, undeclared], []))).toEqual(['2E0QNF']);
+    expect(cohort(databaseHolding([JUNE, SEPTEMBER, undeclared], []))).toEqual([{ dataset: '2026-09-22', callsign: 'M7QNF' }]);
+  });
+
+  it('CohortExample_WhenNoPublicationIsComplete_ReturnsNoRowsAndThePageSaysWhatThatMeans', () => {
+    const partial: Publication = { dataset: '2026-12-15', intendedComplete: 'false', callsigns: ['2E0QNF'] };
+    expect(cohort(databaseHolding([partial], []))).toEqual([]);
+    const prose = [...pageDocument().querySelectorAll('p')].map((p) => p.textContent ?? '').join(' ').replace(/\s+/g, ' ');
+    expect(prose).toContain('An empty result means either that no held publication is complete in this sense, or that no forbidden-suffix callsign in it is missing from the August 2019 snapshot');
   });
 
   it('CohortExample_WhenTheCallsignWasAlreadyInTheAugust2019Snapshot_LeavesItOut', () => {
