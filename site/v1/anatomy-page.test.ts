@@ -36,6 +36,39 @@ describe('v1 anatomy page — static baseline (issue #931)', { tags: ['unit'] },
     expect(ANATOMY_HTML).toContain('<meta name="robots" content="noindex">');
   });
 
+  it('AnatomyPage_Sources_CarryNoUnfinishedPlaceholder', () => {
+    // A note that something is still "to be confirmed" reads as a page left
+    // half-written; a source line states what it links to, finished.
+    const sources = norm(parse().querySelector('main')?.textContent);
+    expect(sources).not.toMatch(/to be confirmed|\bTBC\b|\bTODO\b/i);
+  });
+
+  it('AnatomyPage_HandAuthoredTables_EachSitInAKeyboardReachableRegionNamedByItsCaption', () => {
+    // At phone width these tables are wider than their panel, so their box
+    // scrolls; a box that scrolls must be reachable from the keyboard and say
+    // what it holds. The diagram's own key table is the shared renderer's
+    // output and is not covered here.
+    const boxes = [...parse().querySelectorAll('main .overflow')].filter((b) => b.closest('figure') === null);
+    expect(boxes.length).toBe(3);
+    for (const box of boxes) {
+      const caption = norm(box.querySelector('caption')?.textContent);
+      expect(box.getAttribute('tabindex'), caption).toBe('0');
+      expect(box.getAttribute('role'), caption).toBe('region');
+      expect(box.getAttribute('aria-label'), caption).toBe(caption);
+    }
+  });
+
+  it('AnatomyPage_EachSectionLabel_IsAHeadingOneLevelBelowThePageTitle', () => {
+    // A heading-list reader gets an outline of a long page rather than its
+    // title alone.
+    const main = parse().querySelector('main');
+    const labels = [...(main?.querySelectorAll('.lbl') ?? [])];
+    expect(labels.length).toBe(9);
+    expect(labels.map((l) => l.tagName)).toEqual(labels.map(() => 'H2'));
+    const levels = [...(main?.querySelectorAll('h1, h2, h3, h4') ?? [])].map((h) => Number(h.tagName[1]));
+    expect(levels.filter((level, i) => i > 0 && level > levels[i - 1] + 1)).toEqual([]);
+  });
+
   it('AnatomyPage_JourneyNav_MarksAnatomyAsTheCurrentPage', () => {
     const doc = parse();
     const current = doc.querySelector('nav.journeys a[aria-current="page"]');

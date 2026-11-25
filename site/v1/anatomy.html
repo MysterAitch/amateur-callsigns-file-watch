@@ -22,7 +22,13 @@
     margin:1.1rem 0 0;border:1px solid var(--line);background:var(--panel);border-radius:3px;box-shadow:var(--elevation);padding:1.1rem 1.2rem 1.2rem}
   .anatomy-figure figcaption{color:var(--muted);font-size:.85rem;line-height:1.45;margin-bottom:.6rem}
   .anatomy-figure svg{width:100%;height:auto;max-width:34rem;display:block;margin:.5rem auto 1.1rem}
-  .anatomy-figure .overflow{overflow-x:auto}
+  /* Every table box scrolls rather than spilling past its panel: at 375 px the
+     temporary-RSL table is 331 px wide in a 293 px box. The hand-authored boxes
+     carry tabindex and a region label so the scroll is keyboard-reachable. */
+  main[data-page="anatomy"] .overflow{overflow-x:auto}
+  main[data-page="anatomy"] .overflow:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+  /* Section labels are headings for the outline, styled as the shared label. */
+  h2.lbl{font-weight:400}
   .anat-swatch{display:inline-block;width:.72rem;height:.72rem;border-radius:2px;margin-right:.45rem;vertical-align:middle;border:1px solid rgba(17,24,35,.14)}
   .table-caption{caption-side:top;text-align:left;color:var(--muted);font-size:.78rem;letter-spacing:.02em;padding:.1rem .1rem .5rem;font-family:var(--mono)}
   /* Row headers in the reference tables (shell.css styles thead th and tbody td,
@@ -107,13 +113,13 @@
       <div class="held"><b>How to read the sources</b> – <b>authoritative</b> means stated in an Ofcom-published document; <b>best available</b> means a reputable secondary source where the primary is silent; <b>institutional knowledge</b> means widely known but not sourced here.</div>
     </header>
 
-    <div class="lbl">a callsign, taken apart</div>
+    <h2 class="lbl">a callsign, taken apart</h2>
     <section class="surface">
       <p>The diagram below spreads one representative callsign, <code>MW0ABC/P</code>, out with extra spacing and colour-groups each part. Colour is only a secondary cue – every part is labelled in words on the diagram and named again in the key table, so it reads with no colour, no SVG and no scripts. The simpler <code>M7TEE</code> has just a prefix, a digit and a suffix (no Regional Secondary Locator and no operating suffix). The prose that follows explains each part in full.</p>
       <figure class="anatomy-figure"><figcaption>The parts of a UK amateur callsign, shown on the example MW0ABC/P. Colour groups each part; every part is also labelled in words here and in the table.</figcaption><svg viewBox="0 0 550 130" role="img" aria-labelledby="anat-t anat-d" preserveAspectRatio="xMidYMid meet"><title id="anat-t">Anatomy of the example UK amateur callsign MW0ABC/P</title><desc id="anat-d">The example callsign MW0ABC/P, spaced out and split into 5 colour-and-label groups. 1, M is the prefix: The UK country block — G, M or 2, allocated by the ITU. 2, W is the regional secondary locator: A nation letter after the first character; here W is Wales. 3, 0 is the digit: A single number. 4, ABC is the suffix: The ending letters — the sense of “suffix” this site always means. 5, /P is the operating suffix: An optional addition after a slash; /P means portable. Every group is also named in the table beneath the diagram.</desc><rect x="22" y="26" width="46" height="58" rx="8" fill="var(--surface-2)" stroke="var(--anat-prefix)" stroke-width="2"/><text x="45.0" y="65" text-anchor="middle" font-family="var(--mono)" font-size="30" font-weight="700" fill="var(--ink)">M</text><rect x="98" y="26" width="46" height="58" rx="8" fill="var(--surface-2)" stroke="var(--anat-rsl)" stroke-width="2"/><text x="121.0" y="65" text-anchor="middle" font-family="var(--mono)" font-size="30" font-weight="700" fill="var(--ink)">W</text><rect x="174" y="26" width="46" height="58" rx="8" fill="var(--surface-2)" stroke="var(--anat-digit)" stroke-width="2"/><text x="197.0" y="65" text-anchor="middle" font-family="var(--mono)" font-size="30" font-weight="700" fill="var(--ink)">0</text><rect x="250" y="26" width="46" height="58" rx="8" fill="var(--surface-2)" stroke="var(--anat-suffix)" stroke-width="2"/><text x="273.0" y="65" text-anchor="middle" font-family="var(--mono)" font-size="30" font-weight="700" fill="var(--ink)">A</text><rect x="302" y="26" width="46" height="58" rx="8" fill="var(--surface-2)" stroke="var(--anat-suffix)" stroke-width="2"/><text x="325.0" y="65" text-anchor="middle" font-family="var(--mono)" font-size="30" font-weight="700" fill="var(--ink)">B</text><rect x="354" y="26" width="46" height="58" rx="8" fill="var(--surface-2)" stroke="var(--anat-suffix)" stroke-width="2"/><text x="377.0" y="65" text-anchor="middle" font-family="var(--mono)" font-size="30" font-weight="700" fill="var(--ink)">C</text><rect x="430" y="26" width="46" height="58" rx="8" fill="var(--surface-2)" stroke="var(--anat-op)" stroke-width="2"/><text x="453.0" y="65" text-anchor="middle" font-family="var(--mono)" font-size="30" font-weight="700" fill="var(--ink)">/</text><rect x="482" y="26" width="46" height="58" rx="8" fill="var(--surface-2)" stroke="var(--anat-op)" stroke-width="2"/><text x="505.0" y="65" text-anchor="middle" font-family="var(--mono)" font-size="30" font-weight="700" fill="var(--ink)">P</text><rect x="22.0" y="94" width="46.0" height="6" rx="3" fill="var(--anat-prefix)"/><text x="45.0" y="118" text-anchor="middle" font-size="12.5"><tspan fill="var(--muted)">1 · </tspan><tspan fill="var(--anat-prefix)" font-weight="600">Prefix</tspan></text><rect x="98.0" y="94" width="46.0" height="6" rx="3" fill="var(--anat-rsl)"/><text x="121.0" y="118" text-anchor="middle" font-size="12.5"><tspan fill="var(--muted)">2 · </tspan><tspan fill="var(--anat-rsl)" font-weight="600">RSL</tspan></text><rect x="174.0" y="94" width="46.0" height="6" rx="3" fill="var(--anat-digit)"/><text x="197.0" y="118" text-anchor="middle" font-size="12.5"><tspan fill="var(--muted)">3 · </tspan><tspan fill="var(--anat-digit)" font-weight="600">Digit</tspan></text><rect x="250.0" y="94" width="150.0" height="6" rx="3" fill="var(--anat-suffix)"/><text x="325.0" y="118" text-anchor="middle" font-size="12.5"><tspan fill="var(--muted)">4 · </tspan><tspan fill="var(--anat-suffix)" font-weight="600">Suffix</tspan></text><rect x="430.0" y="94" width="98.0" height="6" rx="3" fill="var(--anat-op)"/><text x="479.0" y="118" text-anchor="middle" font-size="12.5"><tspan fill="var(--muted)">5 · </tspan><tspan fill="var(--anat-op)" font-weight="600">Op. suffix</tspan></text></svg><div class="overflow"><table><caption class="table-caption">The parts of MW0ABC/P, the diagram read as a table.</caption><thead><tr><th scope="col">#</th><th scope="col">Part</th><th scope="col">Characters</th><th scope="col">Colour</th><th scope="col">What it is</th></tr></thead><tbody><tr><th scope="row">1</th><td><a href="#parts">Prefix</a></td><td><code>M</code></td><td><span class="anat-swatch" style="background:var(--anat-prefix)" aria-hidden="true"></span>blue</td><td>The UK country block — G, M or 2, allocated by the ITU. (<a href="https://www.itu.int/gladapp/Allocation/CallSigns">ITU</a>)</td></tr><tr><th scope="row">2</th><td><a href="#rsl">Regional Secondary Locator</a> (<a href="glossary.html#def-rsl">glossary</a>)</td><td><code>W</code></td><td><span class="anat-swatch" style="background:var(--anat-rsl)" aria-hidden="true"></span>green</td><td>A nation letter after the first character; here W is Wales.</td></tr><tr><th scope="row">3</th><td><a href="#parts">Digit</a></td><td><code>0</code></td><td><span class="anat-swatch" style="background:var(--anat-digit)" aria-hidden="true"></span>amber</td><td>A single number.</td></tr><tr><th scope="row">4</th><td><a href="#parts">Suffix</a> (<a href="glossary.html#def-suffix">glossary</a>)</td><td><code>ABC</code></td><td><span class="anat-swatch" style="background:var(--anat-suffix)" aria-hidden="true"></span>red</td><td>The ending letters — the sense of “suffix” this site always means.</td></tr><tr><th scope="row">5</th><td><a href="#characters">Operating suffix</a></td><td><code>/P</code></td><td><span class="anat-swatch" style="background:var(--anat-op)" aria-hidden="true"></span>violet</td><td>An optional addition after a slash; /P means portable.</td></tr></tbody></table></div></figure>
     </section>
 
-    <div class="lbl" id="parts">the parts of a callsign</div>
+    <h2 class="lbl" id="parts">the parts of a callsign</h2>
     <section class="surface">
       <p>A UK amateur callsign is a short identifier for one licence, made of <strong>capital letters and digits</strong> with no spaces. It has three core parts:</p>
       <dl class="deflist">
@@ -141,11 +147,11 @@
         <span class="src"><em>Best available (RSGB)</em> – RSGB Contest Committee, <em>Special Contest Calls</em> (rsgbcc.org, page states “Updated 20 July 2026”; captured 2026-07-23). <em>Observed / reference</em> – the same per-slot table is held in-repo at <code>reference-data/rsgb-special-contest-calls.csv</code>, refreshed monthly by the <code>scc-sweep</code> workflow (#693).</span></p>
     </section>
 
-    <div class="lbl" id="rsl">regional secondary locators</div>
+    <h2 class="lbl" id="rsl">regional secondary locators</h2>
     <section class="surface">
       <p>Where an <abbr title="Regional Secondary Locator">RSL</abbr> is used it must be one of the letters below. There are <strong>two sets</strong>: a letter available to all licences, and – the point most often missed – an <strong>additional letter available only to a Full (Club) Licence</strong>.
         <span class="src"><em>Authoritative</em> – Ofcom OFW611, cl. 24 (pp 7–8).</span></p>
-      <div class="overflow">
+      <div class="overflow" tabindex="0" role="region" aria-label="Regional Secondary Locator letters (Ofcom OFW611, cl. 24).">
       <table>
         <caption class="table-caption">Regional Secondary Locator letters (Ofcom OFW611, cl. 24).</caption>
         <thead><tr><th scope="col">Nation / area</th><th scope="col">All licences</th><th scope="col">Full (Club) Licence only</th></tr></thead>
@@ -166,11 +172,11 @@
         <span class="src"><em>Authoritative</em> – Ofcom OFW611, cl. 22, 23 and 25 (pp 7–8).</span></p>
     </section>
 
-    <div class="lbl" id="special">special-event and temporary callsigns</div>
+    <h2 class="lbl" id="special">special-event and temporary callsigns</h2>
     <section class="surface">
       <p>To mark a national occasion, Ofcom may notify a <strong>temporary RSL</strong> – a special letter used in the <a href="#rsl">RSL</a> position, in place of the normal nation letter, for a bounded period of no more than one year. The permission is notified via the Ofcom website; a royal coronation is named among the occasions it covers.
         <span class="src"><em>Authoritative</em> – Ofcom, <em>Amateur radio guidance</em> (updated 14 October 2025), §5.7.1 (the mechanism, the one-year bound, the “Q” 2022 example, and the royal-coronation occasion); the second-character mechanism and the earlier grants are set out in Ofcom, <em>Policy on temporary call signs and call sign enhancement</em> (March 2018), §5.</span></p>
-      <div class="overflow">
+      <div class="overflow" tabindex="0" role="region" aria-label="Documented temporary RSLs (Ofcom guidance §5.7.1; Ofcom 2018 policy §5).">
       <table>
         <caption class="table-caption">Documented temporary RSLs (Ofcom guidance §5.7.1; Ofcom 2018 policy §5).</caption>
         <thead><tr><th scope="col">Letter</th><th scope="col">Occasion</th><th scope="col">Example</th><th scope="col">Source</th></tr></thead>
@@ -185,11 +191,11 @@
         <span class="src"><em>Authoritative</em> – Ofcom, <em>Amateur radio guidance</em>, §6.2 (Special Event Station) and §6.3 (Permanent Special Event Station).</span></p>
     </section>
 
-    <div class="lbl" id="classes">licence classes and their prefixes</div>
+    <h2 class="lbl" id="classes">licence classes and their prefixes</h2>
     <section class="surface">
       <p>UK amateur licences come at three classes – <strong>Foundation</strong>, <strong>Intermediate</strong> and <strong>Full</strong> – earned by successive exams; there are also Full (Club) and Full (Temporary Reciprocal) licences. Ofcom’s guidance sets out the callsign formats issued at each class.
         <span class="src"><em>Authoritative</em> – Ofcom, <em>Licensing guidance document for amateur radio</em>, §5, Table 1 (Amateur Radio Call sign formats).</span></p>
-      <div class="overflow">
+      <div class="overflow" tabindex="0" role="region" aria-label="Callsign initial characters by class (Ofcom guidance, Table 1).">
       <table>
         <caption class="table-caption">Callsign initial characters by class (Ofcom guidance, Table 1).</caption>
         <thead><tr><th scope="col">Class</th><th scope="col">Currently issuing</th><th scope="col">Formerly issued</th></tr></thead>
@@ -207,7 +213,7 @@
         <span class="src"><em>Authoritative</em> – Ofcom guidance, Table 1; the <code>#</code>-as-RSL-slot reading is grounded in OFW611 cl. 25. This record reuses the same <code>#</code> placeholder notation for that slot.</span></p>
     </section>
 
-    <div class="lbl" id="characters">which characters belong</div>
+    <h2 class="lbl" id="characters">which characters belong</h2>
     <section class="surface">
       <p>The core callsign uses <strong>A–Z</strong> and <strong>0–9</strong>. After the core, an <strong>operating suffix</strong> (post-slash suffix – the sense Ofcom’s cl. 26 calls a “suffix”, distinct from the callsign’s <a href="#parts">ending-letter suffix</a>) may be added after a forward slash <code>/</code>. Ofcom permits <em>any</em> such addition “so long as the station remains identifiable”; the familiar <code>/P</code> (portable), <code>/M</code> (mobile), <code>/MM</code> (maritime mobile), <code>/A</code> and <code>/AM</code> are examples, not a fixed list, and they are “not mandated by, or referenced in, the amateur radio licence”.
         <span class="src"><em>Authoritative</em> – Ofcom OFW611, cl. 26 (p 8); Ofcom guidance, §5.8 Suffixes.</span></p>
@@ -215,7 +221,7 @@
       <p>The <code>#</code> you may see is not a letter of the callsign: it marks the <a href="#rsl">RSL</a> slot in Ofcom’s format notation (as in <code>2#0</code>) and in this record’s own placeholder form. The <code>#</code> notation is optional and style-dependent – some sources use it consistently, some omit it, and some mix the two. The reading here is that “no <abbr title="Regional Secondary Locator">RSL</abbr>” is the common default for Foundation and Full holders (especially in England, the largest population), whereas Intermediate callsigns require the RSL letter for everyone, so it appears consistently there. <span class="src"><em>Our reading / best available</em> – not a rigorously published rule. Confidence: low.</span> Anything else – lower-case letters, ordinary spaces, other punctuation, or characters you cannot see – is not part of a normal callsign. Where the published data contains such characters, the record keeps the entry exactly as published and shows the canonical form beside it.</p>
     </section>
 
-    <div class="lbl" id="slashes">operating away or abroad</div>
+    <h2 class="lbl" id="slashes">operating away or abroad</h2>
     <section class="surface">
       <p>A callsign can carry more than one slash. Operating overseas under <abbr title="European Conference of Postal and Telecommunications Administrations">CEPT</abbr> Recommendation T/R 61-01, a UK amateur must place “the appropriate country prefix before your call sign” (for example <code>F/M0ABC</code> in France) and may still add an operating suffix – so the transmitted call has both a prefix-slash and a suffix-slash.
         <span class="src"><em>Authoritative</em> – Ofcom guidance, §7.3 (Your call sign beyond UK jurisdiction).</span></p>
@@ -225,7 +231,7 @@
         <span class="src"><em>Authoritative</em> – Ofcom, <em>Statement: Updating the amateur radio licensing framework</em> (11 December 2023), definition (l); Ofcom, <em>Amateur radio guidance</em>, §2.1.4.2.2 (six-month term, renewal, phase-out). <em>Observed / reference</em> – the held snapshots carry “Amateur Temporary Reciprocal Radio Licence”; the two reciprocal products are recorded as distinct in <code>reference-data/licence-category.csv</code> (#232).</span></p>
     </section>
 
-    <div class="lbl" id="who">who decides what is allowed</div>
+    <h2 class="lbl" id="who">who decides what is allowed</h2>
     <section class="surface">
       <dl class="deflist">
         <dt>The International Telecommunication Union (<abbr title="International Telecommunication Union">ITU</abbr>)</dt>
@@ -238,13 +244,13 @@
       <p>This is an independent, unofficial mirror; it follows these rules to read the data but does not set them, and is not affiliated with any of these bodies.</p>
     </section>
 
-    <div class="lbl" id="sources">sources</div>
+    <h2 class="lbl" id="sources">sources</h2>
     <section class="surface">
       <p class="note muted">Each Ofcom citation gives a stable landing page and, where the exact artefact is held, the direct PDF.</p>
       <ul class="deflist">
         <li><strong>Authoritative</strong> – Ofcom, <em>Amateur Radio Wireless Telegraphy Licence Conditions Booklet</em> (OFW611, published 21 February 2024): RSLs cl. 22–26, pp 7–8; definition cl. (w). – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a> · <a href="https://www.ofcom.org.uk/siteassets/resources/documents/spectrum/emf/emf-amateur-licence-terms-and-conditions.pdf" target="_blank" rel="noopener">direct PDF</a>.</li>
-        <li><strong>Authoritative</strong> – Ofcom, <em>Licensing guidance document for amateur radio</em>: callsign formats §5 Table 1; post-slash suffixes §5.8; operating abroad §7.3. – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a> (direct PDF link to be confirmed).</li>
-        <li><strong>Authoritative</strong> – Ofcom, <em>UK Interface Requirement 2028</em> (amateur radio licence parameters). – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a> (direct PDF link to be confirmed).</li>
+        <li><strong>Authoritative</strong> – Ofcom, <em>Licensing guidance document for amateur radio</em>: callsign formats §5 Table 1; post-slash suffixes §5.8; operating abroad §7.3. – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a>.</li>
+        <li><strong>Authoritative</strong> – Ofcom, <em>UK Interface Requirement 2028</em> (amateur radio licence parameters). – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a>.</li>
         <li><strong>Authoritative</strong> – Ofcom, <em>Policy on temporary call signs and call sign enhancement</em> (March 2018): club RSLs §3.6; Special Event Stations §4; temporary RSLs §5. – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a>.</li>
         <li><strong>Authoritative</strong> – Ofcom, <em>Statement: Updating the amateur radio licensing framework</em> (11 December 2023): reciprocal licence definitions. – <a href="https://www.ofcom.org.uk/spectrum/radio-equipment/amateur-radio-info" target="_blank" rel="noopener">landing page</a>.</li>
         <li><strong>Authoritative (instrument)</strong> – ITU Radio Regulations, Appendix 42: <a href="https://www.itu.int/en/ITU-R/terrestrial/fmd/Pages/call_sign_series.aspx" target="_blank" rel="noopener">Table of International Call Sign Series</a>.</li>

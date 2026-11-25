@@ -88,7 +88,8 @@ assertGroupsCoverRegistry();
  */
 function mountGroup(host, group) {
   const surface = el('section', 'surface');
-  surface.appendChild(el('div', 'lbl', group.label));
+  // A heading, so a heading-list reader gets the page's outline of groups.
+  surface.appendChild(el('h2', 'lbl', group.label));
   const dl = el('dl', 'gloss');
   for (const key of group.keys) {
     const entry = V1_COPY.glossary[key];
