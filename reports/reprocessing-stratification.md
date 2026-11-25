@@ -15,16 +15,15 @@ correspondence names these runs — that absence is stated, not filled in.
 
 _Corpus assertion ceiling: 2025-06-04 (the latest snapshot carrying the touch signal; this report carries no build-time date)._
 
-The ceiling is NOT the newest snapshot held. Four newer full exports
-(2025-09-11, 2025-11-11, 2026-01-14, 2026-06-23; 146k–160k subjects each)
-are absent because they no longer carry the `record-last-modified` touch
-signal at all: the open-data lane stopped populating `created_date` /
-`last_modified_date` after 2025-06-04 (the columns are present but blank)
-and now populates the licence-version date family instead, while the sole
-later FOI export (2025-09-11) renders a licence-scoped last-modified, a
-different kind. That schema evolution is itself a finding, tracked as its
-own issue (#911); this report is honestly bounded at the signal, not the
-corpus.
+The ceiling is NOT the newest snapshot held. Five newer snapshots
+of at least 10,000 subjects (2025-09-11, 2025-11-11, 2026-01-14, 2026-06-23, 2026-09-22; 146,169–163,198 subjects each)
+are absent because they carry no `record-last-modified` touch signal at all.
+When this was first found, the open-data lane had stopped populating
+`created_date` / `last_modified_date` after 2025-06-04 (the columns are present
+but blank) and populated the licence-version date family instead, while the
+2025-09-11 FOI export renders a licence-scoped last-modified, a different kind.
+That schema evolution is itself a finding, tracked as its own issue (#911);
+this report is honestly bounded at the signal, not the corpus.
 
 ## Method and pinned conventions
 

@@ -15,6 +15,7 @@ import {
   type VintageExtent,
   type VintageWindow,
   type ReprocessingStratification,
+  type NewerSnapshot,
 } from './reprocessing-stratification.ts';
 import type { Episode } from './event-time-coherency.ts';
 import { duckDbAvailable } from '../v2/report-fold.ts';
@@ -265,6 +266,33 @@ describe.skipIf(!duckDbAvailable())('reprocessing stratification — fold over a
     expect(() => computeReprocessingStratification(ledgerFrom(rows), SMALL)).toThrow(/month-only vintage "2024-07"/);
   });
 
+  it('NewerSnapshots_WhenExportsAfterTheCeilingLackTheTouchSignal_AreFoldedWithTheirSizes', () => {
+    // Two analysed snapshots set the ceiling at 2024-02-01. After it: a
+    // four-subject export with no touch claims, a month-only three-subject
+    // export carrying one touch (below the floor of three, so not analysed),
+    // and a two-subject trial below the floor, which is not listed at all.
+    const rows: Row[] = [
+      ...filler('a', 'M7', '2024-01-01', '2024-01-01', 3),
+      ...filler('b', 'M7', '2024-02-01', '2024-01-15', 3),
+      ...['c0', 'c1', 'c2', 'c3'].flatMap((s) => subjectRows(s, 'G0', '2024-03-01')),
+      ...subjectRows('d0', 'M7', '2024-04', '2024-03-20'), ...subjectRows('d1', 'M7', '2024-04'), ...subjectRows('d2', 'M7', '2024-04'),
+      ...['e0', 'e1'].flatMap((s) => subjectRows(s, 'M7', '2024-05-01')),
+    ];
+    const strat = computeReprocessingStratification(ledgerFrom(rows), SMALL);
+    expect(strat.assertionCeiling).toBe('2024-02-01');
+    expect(strat.newerSnapshots).toEqual([
+      { vintage: '2024-03-01', vintageDate: '2024-03-01', subjects: 4, touchSubjects: 0 },
+      { vintage: '2024-04', vintageDate: '2024-04-01', subjects: 3, touchSubjects: 1 },
+    ]);
+  });
+
+  it('NewerSnapshots_WhenNoSnapshotIsAnalysed_ListsNothingRatherThanEverySnapshot', () => {
+    const rows: Row[] = [...filler('a', 'M7', '2024-01-01', '2024-01-01', 3)];
+    const strat = computeReprocessingStratification(ledgerFrom(rows), SMALL);
+    expect(strat.assertionCeiling).toBe('');
+    expect(strat.newerSnapshots).toEqual([]);
+  });
+
   it('Report_RunTwiceOverTheSameClaims_IsByteDeterministic', () => {
     const rows: Row[] = [
       ...filler('p', 'M7', '2024-01-01', '2024-01-01', 3),
@@ -299,6 +327,7 @@ describe('reprocessing stratification — reconciliation degradation', { tags: [
       windows,
       rows: [],
       episodes: [],
+      newerSnapshots: [],
     };
   }
 
@@ -328,5 +357,69 @@ describe('reprocessing stratification — reconciliation degradation', { tags: [
     ]));
     expect(report).toContain('window, where `M7` is');
     expect(report).not.toContain('absent from this corpus');
+  });
+});
+
+// --- The snapshots newer than the ceiling ------------------------------------
+// The report once listed the newer full exports by hand, and a fifth landed
+// without the list changing. The list, its count and its sizes now come from
+// the fold, so these cases pin how each shape of that list reads.
+
+describe('reprocessing stratification - snapshots newer than the ceiling', { tags: ['unit'] }, () => {
+  function stratWithNewer(newerSnapshots: NewerSnapshot[]): ReprocessingStratification {
+    return {
+      params: SMALL,
+      touchKind: 'record-last-modified',
+      assertionCeiling: '2025-06-04',
+      windows: [{ vintage: '2025-06-04', vintageDate: '2025-06-04', predVintage: '2025-04-08', predDate: '2025-04-08', baseSubjects: 100, cohortSubjects: 0, overlapsEpisode: false }],
+      rows: [],
+      episodes: [],
+      newerSnapshots,
+    };
+  }
+
+  function newer(vintage: string, subjects: number, touchSubjects = 0): NewerSnapshot {
+    return { vintage, vintageDate: vintage, subjects, touchSubjects };
+  }
+
+  it('CeilingNote_WhenFiveSnapshotsFollowTheCeiling_ListsAllFiveWithTheirSizeRange', () => {
+    const report = renderReprocessingStratification(stratWithNewer([
+      newer('2025-09-11', 146_201), newer('2025-11-11', 159_895), newer('2026-01-14', 160_004),
+      newer('2026-06-23', 158_318), newer('2026-09-22', 163_341),
+    ]));
+    expect(report).toContain('The ceiling is NOT the newest snapshot held. Five newer snapshots\nof at least 3 subjects');
+    expect(report).toContain('(2025-09-11, 2025-11-11, 2026-01-14, 2026-06-23, 2026-09-22; 146,201–163,341 subjects each)');
+    expect(report).toContain('are absent because they carry no `record-last-modified` touch signal at all');
+  });
+
+  it('CeilingNote_WhenOneSnapshotFollowsTheCeiling_ReadsInTheSingular', () => {
+    const report = renderReprocessingStratification(stratWithNewer([newer('2025-09-11', 146_201)]));
+    expect(report).toContain('One newer snapshot\nof at least 3 subjects');
+    expect(report).toContain('(2025-09-11; 146,201 subjects)');
+    expect(report).toContain('is absent because it carries no `record-last-modified` touch signal at all');
+  });
+
+  it('CeilingNote_WhenNothingFollowsTheCeiling_DoesNotClaimTheCeilingIsOlderThanTheNewest', () => {
+    const report = renderReprocessingStratification(stratWithNewer([]));
+    expect(report).not.toContain('The ceiling is NOT the newest snapshot held');
+    expect(report).toContain('No snapshot held after the ceiling has at least 3 subjects');
+  });
+
+  it('CeilingNote_WhenANewerSnapshotCarriesTheTouchSignalForTooFewSubjects_SaysSoRatherThanNone', () => {
+    const report = renderReprocessingStratification(stratWithNewer([newer('2025-09-11', 146_201), newer('2026-12-15', 150_000, 2)]));
+    expect(report).not.toContain('touch signal at all');
+    expect(report).toContain('are absent because each carries the `record-last-modified` touch signal for fewer than 3 subjects (2025-09-11: none, 2026-12-15: 2).');
+  });
+
+  it('CeilingNote_WhenTheOneNewerSnapshotCarriesTheTouchSignalForTooFewSubjects_ReadsAsOneStatement', () => {
+    const report = renderReprocessingStratification(stratWithNewer([newer('2026-12-15', 150_000, 2)]));
+    expect(report).toContain('is absent because it carries the `record-last-modified` touch signal for only 2 subjects, fewer than the 3 needed.');
+    expect(report).not.toContain('or not at all');
+  });
+
+  it('CeilingNote_WhenNoSnapshotCarriesTheTouchSignal_SaysThereIsNoCeilingRatherThanCallingItTheNewest', () => {
+    const report = renderReprocessingStratification({ ...stratWithNewer([]), assertionCeiling: '', windows: [] });
+    expect(report).toContain('No snapshot carries the `record-last-modified` touch signal for at least 3 subjects, so there is no ceiling and no window to analyse.');
+    expect(report).not.toContain('the ceiling is the newest snapshot');
   });
 });
