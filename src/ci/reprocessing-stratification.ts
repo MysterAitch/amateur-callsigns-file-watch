@@ -598,6 +598,9 @@ const COUNT_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven'
 function renderCeilingNote(strat: ReprocessingStratification): string[] {
   const floor = num(strat.params.minVintageSubjects);
   const newer = strat.newerSnapshots;
+  if (strat.assertionCeiling === '') {
+    return [`No snapshot carries the \`record-last-modified\` touch signal for at least ${floor} subjects, so there is no ceiling and no window to analyse.`];
+  }
   if (newer.length === 0) {
     return [`No snapshot held after the ceiling has at least ${floor} subjects, so the ceiling is the newest snapshot this report could analyse.`];
   }
@@ -607,10 +610,12 @@ function renderCeilingNote(strat: ReprocessingStratification): string[] {
   const low = Math.min(...sizes);
   const high = Math.max(...sizes);
   const size = one ? `${num(low)} subjects` : `${low === high ? num(low) : `${num(low)}–${num(high)}`} subjects each`;
-  const partlyTouched = newer.filter(s => s.touchSubjects > 0);
-  const why = partlyTouched.length === 0
+  const anyTouched = newer.some(s => s.touchSubjects > 0);
+  const why = !anyTouched
     ? `${one ? 'is absent because it carries' : 'are absent because they carry'} no \`record-last-modified\` touch signal at all`
-    : `${one ? 'is absent because it carries' : 'are absent because they carry'} the \`record-last-modified\` touch signal for fewer than ${floor} subjects (${partlyTouched.map(s => `${s.vintage}: ${num(s.touchSubjects)}`).join(', ')}) or not at all`;
+    : one
+      ? `is absent because it carries the \`record-last-modified\` touch signal for only ${num(newer[0].touchSubjects)} subjects, fewer than the ${floor} needed`
+      : `are absent because each carries the \`record-last-modified\` touch signal for fewer than ${floor} subjects (${newer.map(s => `${s.vintage}: ${s.touchSubjects === 0 ? 'none' : num(s.touchSubjects)}`).join(', ')})`;
   return [
     `The ceiling is NOT the newest snapshot held. ${countWord} newer snapshot${one ? '' : 's'}`,
     `of at least ${floor} subjects (${newer.map(s => s.vintage).join(', ')}; ${size})`,

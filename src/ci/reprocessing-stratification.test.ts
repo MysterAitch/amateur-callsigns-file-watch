@@ -408,6 +408,18 @@ describe('reprocessing stratification - snapshots newer than the ceiling', { tag
   it('CeilingNote_WhenANewerSnapshotCarriesTheTouchSignalForTooFewSubjects_SaysSoRatherThanNone', () => {
     const report = renderReprocessingStratification(stratWithNewer([newer('2025-09-11', 146_201), newer('2026-12-15', 150_000, 2)]));
     expect(report).not.toContain('touch signal at all');
-    expect(report).toContain('carry the `record-last-modified` touch signal for fewer than 3 subjects (2026-12-15: 2)');
+    expect(report).toContain('are absent because each carries the `record-last-modified` touch signal for fewer than 3 subjects (2025-09-11: none, 2026-12-15: 2).');
+  });
+
+  it('CeilingNote_WhenTheOneNewerSnapshotCarriesTheTouchSignalForTooFewSubjects_ReadsAsOneStatement', () => {
+    const report = renderReprocessingStratification(stratWithNewer([newer('2026-12-15', 150_000, 2)]));
+    expect(report).toContain('is absent because it carries the `record-last-modified` touch signal for only 2 subjects, fewer than the 3 needed.');
+    expect(report).not.toContain('or not at all');
+  });
+
+  it('CeilingNote_WhenNoSnapshotCarriesTheTouchSignal_SaysThereIsNoCeilingRatherThanCallingItTheNewest', () => {
+    const report = renderReprocessingStratification({ ...stratWithNewer([]), assertionCeiling: '', windows: [] });
+    expect(report).toContain('No snapshot carries the `record-last-modified` touch signal for at least 3 subjects, so there is no ceiling and no window to analyse.');
+    expect(report).not.toContain('the ceiling is the newest snapshot');
   });
 });

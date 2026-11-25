@@ -710,7 +710,7 @@ and not part of the original note). Across the whole corpus the two strings
 are **not co-witnessed in any single export**:
 `Amateur Temporary Reciprocal Radio Licence` appears 1,620 times across 23
 sources, including 100 rows of the `2026-06-23` publication (the newest held
-when this was verified), whereas
+when this was verified, 2026-07-29), whereas
 `Amateur Full (Reciprocal) Radio Licence` appears in **exactly one source** —
 15 rows of the 2016-09-29 disclosure's licence-class column — and in **no**
 publication since. Keeping the categories separate is therefore right, but
