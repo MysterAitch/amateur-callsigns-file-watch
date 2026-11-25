@@ -112,8 +112,10 @@ describe('Home holdings map (issue #712)', { tags: ['unit'] }, () => {
   });
 
   it('HoldingsMap_KeyboardAffordances_CarrySkipLinkAndLiveReadout', () => {
-    const html = renderHoldingsMap(FIXTURE, 'past-holdings');
-    expect(html).toContain('class="hold-skip" href="#past-holdings"');
+    // The default target is an id the home page really carries
+    // (skip-link-targets.test.ts proves it exists on the assembled page).
+    const html = renderHoldingsMap(FIXTURE);
+    expect(html).toContain('class="hold-skip" href="#holdings-map-end"');
     expect(html).toContain(`Skip the holdings map (${FIXTURE.length} datasets)`);
     expect(html).toContain('id="hold-readout"');
     expect(html).toContain('role="status"');
