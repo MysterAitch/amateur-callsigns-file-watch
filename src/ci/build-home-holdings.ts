@@ -90,7 +90,11 @@ interface ManifestDataset {
   vintage: string | null;
   title: string;
   classes: string[];
+  // Rows the lookup could key by callsign.
   rows: number;
+  // Rows it could not (a callsign that cleans to nothing). They are in the
+  // file all the same, so a count of what the file holds adds them back.
+  unkeyable?: number;
 }
 
 // One held publication, as the down-markers read it.
@@ -136,6 +140,12 @@ export interface HomeHoldings {
   // "read as of" reading is derived rather than hand-stamped; null when the
   // newest vintage is month-only.
   latestDateIso: string | null;
+  // The newest register snapshot and how many records its file holds, so the
+  // home page's callsign total follows the data. Kept apart from latestDateIso,
+  // which is the newest publication of ANY kind: the two coincide only while
+  // the newest thing held happens to be a register. Null when no register
+  // snapshot is held.
+  latestRegister: { vintage: string; records: number } | null;
   publications: HoldingPublication[];
   milestones: HoldingMilestone[];
 }
@@ -244,6 +254,18 @@ export function homeMilestones(prefixRows: readonly PrefixIntroRow[]): HoldingMi
 // ---------------------------------------------------------------------------
 // Assembly.
 
+// The newest dated register snapshot, with every record its file holds. On
+// 2026-09-22 one row's callsign was a single full stop: the lookup cannot key
+// it, and the file still has 163,342 records, not 163,341.
+export function latestRegister(datasets: readonly ManifestDataset[]): { vintage: string; records: number } | null {
+  let newest: (ManifestDataset & { vintage: string }) | null = null;
+  for (const d of datasets) {
+    if (typeof d.vintage !== 'string' || d.vintage === '' || primaryKind(d) !== 'register-snapshot') continue;
+    if (newest === null || d.vintage > newest.vintage) newest = { ...d, vintage: d.vintage };
+  }
+  return newest === null ? null : { vintage: newest.vintage, records: newest.rows + (newest.unkeyable ?? 0) };
+}
+
 export function homeHoldings(datasets: readonly ManifestDataset[], prefixRows: readonly PrefixIntroRow[]): HomeHoldings {
   const publications = holdingsPublications(datasets);
   const years = publications
@@ -263,6 +285,7 @@ export function homeHoldings(datasets: readonly ManifestDataset[], prefixRows: r
     heldStartYear,
     latestYear,
     latestDateIso,
+    latestRegister: latestRegister(datasets),
     publications,
     milestones: homeMilestones(prefixRows),
   };

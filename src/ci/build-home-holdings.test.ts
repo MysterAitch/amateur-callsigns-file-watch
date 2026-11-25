@@ -15,6 +15,7 @@ import {
   type PrefixIntroRow,
 } from './build-home-holdings.ts';
 import { buildCallsignShards } from './build-callsign-shards.ts';
+import { defaultHomeModel, enhanceHomeModel, parseHoldings } from '../../site/v1/home-sections.js';
 import { pinArchiveToFrozenBaseline } from '../testing/frozen-baseline-archive.ts';
 
 // Reads committed derived files, which stop at the frozen baseline.
@@ -158,6 +159,58 @@ describe('home holdings — assembly', { tags: ['unit'] }, () => {
     const h = homeHoldings(monthly, PREFIX_ROWS);
     expect(h.latestYear).toBe(2021);
     expect(h.latestDateIso).toBeNull();
+  });
+
+  // The home page states how many callsigns the newest register holds. The
+  // figures below appear nowhere in the source, so a passing test cannot be
+  // reading a hand-written constant.
+  it('HomeHoldings_NewestRegisterSnapshot_ReportsItsVintageAndEveryRecordIncludingUnkeyableOnes', () => {
+    const datasets: ManifestDataset[] = [
+      ...DATASETS,
+      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 4321, unkeyable: 2 },
+    ];
+
+    // 4,321 rows the lookup can key plus 2 it cannot: the file holds 4,323.
+    expect(homeHoldings(datasets, PREFIX_ROWS).latestRegister).toEqual({ vintage: '2027-03-05', records: 4323 });
+  });
+
+  it('HomeHoldings_NewestPublicationIsNotARegister_StillReportsTheNewestRegister', () => {
+    const datasets: ManifestDataset[] = [
+      ...DATASETS,
+      { lane: 'foi', vintage: '2028-01-01', title: 'a later disclosure', classes: ['available-pool'], rows: 77 },
+    ];
+
+    const h = homeHoldings(datasets, PREFIX_ROWS);
+
+    expect(h.latestDateIso).toBe('2028-01-01');
+    expect(h.latestRegister).toEqual({ vintage: '2026-06-23', records: 158318 });
+  });
+
+  it('HomeHoldings_NoRegisterSnapshotHeld_ReportsNoLatestRegister', () => {
+    const datasets: ManifestDataset[] = [{ lane: 'foi', vintage: '2021-04', title: 'wdtk-month-only', classes: ['available-pool'], rows: 10 }];
+
+    expect(homeHoldings(datasets, PREFIX_ROWS).latestRegister).toBeNull();
+  });
+
+  // The builder and the page are written in different files, in different
+  // languages' type systems. This passes the builder's actual output through
+  // the page's own parser and model, so a field one side names differently
+  // from the other fails here and not in a visitor's browser.
+  it('HoldingsManifest_AsTheBuilderWritesIt_IsReadByThePageAndSetsItsCallsignTotal', () => {
+    const datasets: ManifestDataset[] = [
+      ...DATASETS,
+      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 4321, unkeyable: 2 },
+    ];
+    const asServed: unknown = JSON.parse(JSON.stringify(homeHoldings(datasets, PREFIX_ROWS)));
+
+    const parsed = parseHoldings(asServed);
+    if (parsed === null) throw new Error('the page rejected the manifest the builder wrote');
+    const model = enhanceHomeModel(defaultHomeModel(), parsed);
+
+    expect(model.glance.find(cell => cell.k === 'callsigns')?.v).toBe('4,323');
+    expect(model.glance.find(cell => cell.k === 'latest snapshot')?.v).toBe('2027-03-05');
+    expect(model.fromTheRecord[0].sentence).toContain('(2027-03-05) records 4,323 callsigns');
+    expect(model.facts).toEqual({ date: '5 March 2027', count: 5 });
   });
 
   it('HomeHoldings_BuiltTwice_IsByteIdenticalForTheSameInputs', () => {
