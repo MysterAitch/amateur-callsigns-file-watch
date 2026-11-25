@@ -346,6 +346,21 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     expect(holdings, 'the holdings manifest is built before the callsign data reaches the root').toBeGreaterThan(dataAtRoot);
   });
 
+  it('HomeNoScriptBaseline_IsStampedFromTheHoldingsManifest_AfterTheManifestAndThePageExist', () => {
+    // The home page's no-script figures went stale for two months while only
+    // its script followed the data. The stamp reads holdings.json and rewrites
+    // the deployed index.html, so it must run after both are in place.
+    const block = jobBlock(workflow(), 'build-site-databases');
+    const stamp = block.indexOf('node src/ci/build-v1-home-static.ts _site');
+    expect(stamp, 'the home baseline stamp step is missing').toBeGreaterThan(-1);
+    const pages = block.indexOf('cp site/v1/*.html site/v1/*.js site/v1/*.css _site/');
+    const holdings = block.indexOf('node src/ci/build-home-holdings.ts _site');
+    expect(pages).toBeGreaterThan(-1);
+    expect(holdings).toBeGreaterThan(-1);
+    expect(stamp, 'the home baseline is stamped before the v1 pages reach the root').toBeGreaterThan(pages);
+    expect(stamp, 'the home baseline is stamped before the holdings manifest is built').toBeGreaterThan(holdings);
+  });
+
   it('RootDiscoveryFiles_AreBuilt_AtTheDeployRoot', () => {
     // Issue #921: the slim root sitemap + robots.txt for the v1 launch, built
     // into the bare _site root.

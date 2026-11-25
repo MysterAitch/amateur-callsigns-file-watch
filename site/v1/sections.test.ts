@@ -14,6 +14,7 @@ import {
   fractionalYearOf,
   milestoneRotationStart,
   humaniseIsoDate,
+  renderHomeOverBaseline,
 } from './home-sections.js';
 import {
   CALLSIGN_SECTION_ORDER,
@@ -403,6 +404,78 @@ function extractGlanceFigures(scope: ParentNode) {
     note: norm(dial?.querySelector('.sd-note')?.textContent),
   };
 }
+
+// The deploy stamps the manifest-derived sections into the served page from the
+// newest manifest. The script must not replace them with its hand-written
+// defaults while the manifest is loading, nor leave those defaults standing if
+// the manifest never arrives.
+describe('v1 home script over the stamped baseline', { tags: ['ui'] }, () => {
+  function stampedRoot(): HTMLElement {
+    // A stamped page as served: the at-a-glance and from-the-record sections
+    // state an invented 2027 register of 4,323 records.
+    const holdings = holdingsFixture();
+    holdings.latestDateIso = '2027-03-16';
+    holdings.latestYear = 2027;
+    holdings.latestRegister = { vintage: '2027-03-16', records: 4323 };
+    const model = enhanceHomeModel(defaultHomeModel(), { ...holdings, publications: [], milestones: [] });
+    const root = document.createElement('div');
+    renderHomeSections(root, model);
+    return root;
+  }
+  const cell = (root: ParentNode, k: string): string | null | undefined =>
+    [...root.querySelectorAll('.readout .cell')].find(c => c.querySelector('.k')?.textContent === k)?.querySelector('.v')?.textContent;
+
+  it('HomeScript_BeforeTheManifestArrives_KeepsTheStampedFiguresRatherThanItsDefaults', () => {
+    const root = stampedRoot();
+    renderHomeOverBaseline(root, defaultHomeModel());
+    expect(cell(root, 'callsigns')).toBe('4,323');
+    expect(cell(root, 'latest snapshot')).toBe('2027-03-16');
+    expect(root.textContent).not.toContain('158,318');
+    expect([...root.querySelectorAll('section[data-section]')].map(s => s.getAttribute('data-section'))).toEqual([...HOME_SECTION_ORDER]);
+  });
+
+  it('HomeScript_OverAPageWithNoStampedSections_RendersItsDefaults', () => {
+    const root = document.createElement('div');
+    renderHomeOverBaseline(root, defaultHomeModel());
+    expect(cell(root, 'callsigns')).toBe('158,318');
+    expect([...root.querySelectorAll('section[data-section]')].map(s => s.getAttribute('data-section'))).toEqual([...HOME_SECTION_ORDER]);
+  });
+
+  it('HomeScript_WhenTheManifestThenArrives_RedrawsTheKeptSectionsWithTheMarks', () => {
+    const root = stampedRoot();
+    renderHomeOverBaseline(root, defaultHomeModel());
+    remountManifestSections(root, enhanceHomeModel(defaultHomeModel(), holdingsFixture()));
+    expect(root.querySelectorAll('.sd-pip').length).toBeGreaterThan(0);
+    expect(root.querySelectorAll('section[data-section="at-a-glance"]')).toHaveLength(1);
+  });
+});
+
+// Two home facts are hand-written and no manifest carries them: the 1903
+// history horizon and "M2 – reserved-only". Each is pinned to the committed
+// report that backs it, which the report sweep regenerates after a publication
+// lands, so the fact fails here when the data stops agreeing rather than
+// quietly going false on the page.
+describe('v1 home hand-written facts pinned to their reports', { tags: ['unit'] }, () => {
+  const sequenceAnalytics = (): string => fs.readFileSync('reports/sequence-analytics.md', 'utf8');
+
+  it('HomeHistoryHorizon_IsTheEarliestDatedAllocationTheReportsRecord', () => {
+    const years = [...sequenceAnalytics().matchAll(/Dated allocations (\d{4})-\d{2}-\d{2} →/g)].map(m => Number(m[1]));
+    expect(assertNonEmpty(years, 'dated-allocation ranges in reports/sequence-analytics.md').length).toBeGreaterThan(0);
+    expect(defaultHomeModel().span.historyStartYear).toBe(Math.min(...years));
+  });
+
+  it('HomeM2ReservedOnlyFact_StillHasNoDatedAllocationInTheReports', () => {
+    // A dated allocation means a recorded start, which a reserved-only callsign
+    // does not have; the first issued M2 callsign would give the block one.
+    const fact = defaultHomeModel().fromTheRecord.find(f => f.headline.startsWith('M2'));
+    expect(fact, 'the M2 fact is still in the pool').toBeDefined();
+    const row = sequenceAnalytics().split('\n').find(line => line.startsWith('| `M2`'));
+    expect(row, 'reports/sequence-analytics.md has an M2 row').toBeDefined();
+    const cells = (row ?? '').split('|').map(c => c.trim());
+    // | series | level | status | population | dated | ...
+    expect(cells[5], `M2 row: ${row ?? ''}`).toBe('0');
+  });
+});
 
 describe('v1 home static/JS parity', { tags: ['unit'] }, () => {
   it('StaticBaseline_AtAGlanceFigures_MatchTheModelRenderedFigures', () => {

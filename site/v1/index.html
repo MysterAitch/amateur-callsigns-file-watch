@@ -13,7 +13,10 @@
      the dated-fact chip), the journey nav, the lookup hero (a plain GET form
      that resolves without JavaScript), the ways-in cards and the scope note all
      read with no script. home.js re-mounts the shell and sections from the copy
-     registry as a progressive enhancement. -->
+     registry as a progressive enhancement. Each v1-home-static region is
+     rewritten at deploy from the holdings manifest by
+     src/ci/build-v1-home-static.ts; what is committed there is that stamp's
+     render of the script's own defaults. -->
 <body>
 
 <div id="sitebar">
@@ -61,38 +64,9 @@
         <div class="trust"><span class="mono">TRACE ›</span><span>Every value is a projection of an archived publication; every claim traces to the source byte that asserts it. Nothing is independently verified – and disagreeing sources are both kept, unresolved.</span></div>
       </section>
 
-      <section data-section="at-a-glance">
-        <section class="surface">
-          <div class="lbl">the record at a glance</div>
-          <div class="readout">
-            <div class="cell"><div class="k">publications</div><div class="v">65</div><div class="u">folded, 2013–2026</div></div>
-            <div class="cell"><div class="k">callsigns</div><div class="v">158,318</div><div class="u">latest register</div></div>
-            <div class="cell"><div class="k">span held</div><div class="v">13y</div><div class="u">2013 → 2026</div></div>
-            <div class="cell"><div class="k">latest snapshot</div><div class="v">2026-06-23</div><div class="u">June 2026</div></div>
-          </div>
-          <div class="spandial" role="img" aria-label="Holdings across time: 65 publications held byte-for-byte across the dense run 2013 to 2026, and dated licence history reaching back to 1903. Most recent held as of 23 June 2026.">
-            <div class="sd-head"><span class="sd-lbl">holdings across time</span><span class="sd-range">1903 – 2026</span></div>
-            <div class="sd-scale" aria-hidden="true">
-              <div class="sd-seg history">
-                <div class="sd-cap">earliest dated licence history</div>
-                <div class="sd-base"></div>
-                <span class="sd-tick" style="left:0"></span><span class="sd-tick" style="left:50%"></span><span class="sd-tick" style="left:100%"></span>
-                <span class="sd-yr edge-l" style="left:0">1903</span>
-              </div>
-              <div class="sd-break"><span></span><span></span></div>
-              <div class="sd-seg held">
-                <div class="sd-cap on">65 publications, byte-for-byte</div>
-                <div class="sd-base on"></div>
-                <div class="sd-ticks"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-                <span class="sd-yr" style="left:0">2013</span><span class="sd-yr" style="left:100%">2026</span>
-                <div class="sd-needle" style="left:100%"><span class="nd"></span><span class="nlbl">as of 23 June 2026 · 65 held</span></div>
-              </div>
-            </div>
-            <div class="sd-foot"><span>read as of <b>23 June 2026</b></span><span><b>65</b> publications held</span><span><b>2013</b> → <b>2026</b> byte-for-byte</span><span>dated history to <b>1903</b></span></div>
-            <div class="sd-note">Individual publication marks and register milestones appear when the page’s script runs.</div>
-          </div>
-        </section>
-      </section>
+<!-- v1-home-static: at-a-glance -->
+<section data-section="at-a-glance"><section class="surface"><div class="lbl">the record at a glance</div><div class="readout"><div class="cell"><div class="k">publications</div><div class="v">65</div><div class="u">folded, 2013–2026</div></div><div class="cell"><div class="k">callsigns</div><div class="v">158,318</div><div class="u">latest register</div></div><div class="cell"><div class="k">span held</div><div class="v">13y</div><div class="u">2013 → 2026</div></div><div class="cell"><div class="k">latest snapshot</div><div class="v">2026-06-23</div><div class="u">June 2026</div></div></div><div class="spandial" role="img" aria-label="Holdings across time: 65 publications held byte-for-byte across the dense run 2013 to 2026, and dated licence history reaching back to 1903. Most recent held as of 23 June 2026."><div class="sd-head"><span class="sd-lbl">holdings across time</span><span class="sd-range">1903 – 2026</span></div><div class="sd-scale" aria-hidden="true"><div class="sd-seg history"><div class="sd-cap">earliest dated licence history</div><div class="sd-base"></div><span class="sd-tick" style="left: 0px;"></span><span class="sd-tick" style="left: 50%;"></span><span class="sd-tick" style="left: 100%;"></span><span class="sd-yr edge-l" style="left: 0px;">1903</span></div><div class="sd-break"><span></span><span></span></div><div class="sd-seg held"><div class="sd-cap on">65 publications, byte-for-byte</div><div class="sd-base on"></div><div class="sd-ticks"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div><span class="sd-yr" style="left: 0px;">2013</span><span class="sd-yr" style="left: 100%;">2026</span><div class="sd-needle" style="left: 100%;"><span class="nd"></span><span class="nlbl">as of 23 June 2026 · 65 held</span></div></div></div><div class="sd-foot"><span>read as of <b>23 June 2026</b></span><span><b>65</b> publications held</span><span><b>2013</b> → <b>2026</b> byte-for-byte</span><span>dated history to <b>1903</b></span></div><div class="sd-note">Individual publication marks and register milestones appear when the page’s script runs.</div></div></section></section>
+<!-- /v1-home-static -->
 
       <section data-section="ways-in">
         <section class="surface">
@@ -104,16 +78,9 @@
         </section>
       </section>
 
-      <section data-section="from-the-record">
-        <section class="surface">
-          <div class="lbl">from the record</div>
-          <div class="watch">
-            <div class="bar"><span class="chip"><span class="led"></span>from the pool</span></div>
-            <div class="body"><div><div class="big mono">158,318 callsigns</div><p>The newest publication held (2026-06-23) records 158,318 callsigns – the whole body a decade of publications is folded against.</p></div></div>
-            <div class="rot-foot">Selection rotates as the record grows – a different notable detail leads when the newest publication changes, not on every rebuild.</div>
-          </div>
-        </section>
-      </section>
+<!-- v1-home-static: from-the-record -->
+<section data-section="from-the-record"><section class="surface"><div class="lbl">from the record</div><div class="watch"><div class="bar"><span class="chip"><span class="led"></span>from the pool</span></div><div class="body"><div><div class="big mono">158,318 callsigns</div><p>The newest publication held (2026-06-23) records 158,318 callsigns – the whole body a decade of publications is folded against.</p></div></div><div class="rot-foot">Selection rotates as the record grows – a different notable detail leads when the newest publication changes, not on every rebuild.</div></div></section></section>
+<!-- /v1-home-static -->
 
       <section data-section="scope-disclaimer">
         <details class="fold">

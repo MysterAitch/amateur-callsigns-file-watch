@@ -9,6 +9,7 @@
 
 import { V1_COPY, EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS } from './copy.js';
 import { RECORD_FACTS } from './record-facts.js';
+import { renderDocument } from './el.js';
 
 // The bitemporal glosses are imported so the home module participates in the
 // same verbatim-gloss guarantee the dial does (they are re-exported for any
@@ -16,13 +17,16 @@ import { RECORD_FACTS } from './record-facts.js';
 // import meaningful to tooling.
 export const HOME_BITEMPORAL_GLOSSES = [EVENT_TIME_GLOSS, ASSERTION_TIME_GLOSS];
 
+// Built through the render document el.js resolves (the browser's own, or the
+// Node build's jsdom), so the deploy can stamp the manifest-derived sections into
+// the no-script page from this same code (src/ci/build-v1-home-static.ts).
 /**
  * @param {string} tag
  * @param {string | null} [cls]
  * @param {string | null} [txt]
  */
 const el = (tag, cls, txt) => {
-  const node = document.createElement(tag);
+  const node = renderDocument().createElement(tag);
   if (cls) node.className = cls;
   if (txt != null) node.textContent = txt;
   return node;
@@ -41,14 +45,19 @@ const link = (href, label, cls = null) => {
 // and the site-bar chip cannot split — one figure, authored once and stamped at
 // build time. The remaining figures (the 1903 history horizon, the latest-
 // register callsign total, the ISO/month rendering of the newest date) are
-// hand-authored, report-cited CONSTANTS the holdings manifest does not carry.
-// The JS-rendered home and the static no-JS baseline in index.html are held to
-// these same values by a parity test (site/v1/sections.test.ts).
+// hand-authored CONSTANTS, and every one but the 1903 horizon is a default that
+// no deployed reader sees: the deploy stamps the two sections that show them
+// from the holdings manifest (src/ci/build-v1-home-static.ts, which fails rather
+// than stamp a default), and the script keeps those stamped sections until the
+// manifest arrives (renderHomeOverBaseline). A deployed page whose manifest
+// failed to load once showed these June figures beside September ones; that is
+// why. The committed index.html carries the stamp's render of these defaults.
 // Citations:
-//  - 1903: the earliest dated allocation the record holds, verified in three
-//    reports (reports/state-at-t.md, survival-cohort.md and sequence-analytics.md
-//    all report "Dated allocations 1903-05-03 → …").
-//  - 158,318 callsigns in the newest publication held (reports/curiosity-index.md).
+//  - 1903: the earliest dated allocation the record holds
+//    (reports/sequence-analytics.md, "Dated allocations 1903-05-03 → …"), pinned
+//    to that report by site/v1/sections.test.ts.
+//  - 158,318 callsigns in the 2026-06-23 register, the newest when these
+//    defaults were written; the deployed figure comes from the manifest.
 //  - The 2013 held-run start is drawn from the archive's own extent and has no
 //    single citable report; it is an honestly-noted centralised constant.
 const GROUNDED_ARCHIVE = {
@@ -63,8 +72,7 @@ const GROUNDED_ARCHIVE = {
 };
 
 // The home model. Every figure reads from GROUNDED_ARCHIVE above — one source
-// for the readout row and the span dial, with the static no-JS baseline held to
-// it by the parity test. The three from-the-record facts are real, notable and
+// for the readout row and the span dial. The three from-the-record facts are real, notable and
 // record-scoped, and ship as a static placeholder pool ready for build-time
 // rotation.
 /**
@@ -170,8 +178,10 @@ export function defaultHomeModel() {
     //  2. reports/forbidden-suffix-history.md — 1,465 three-letter suffixes
     //     withheld in the 2016-09 disclosure; the set has since shifted
     //     (+JIZ, −QNF, −ZFJ by 2024).
-    //  3. reports/prefixes.md — the M2 prefix block appears reserved-only
-    //     across the publications held (no issued callsign in it).
+    //  3. The M2 prefix block appears reserved-only across the publications
+    //     held (no issued callsign in it): reports/sequence-analytics.md gives
+    //     M2 no dated allocation, pinned to that report by
+    //     site/v1/sections.test.ts.
     fromTheRecord: [
       newestPublicationFact(g.latestDateIso, g.callsigns),
       {
@@ -232,9 +242,9 @@ export function humaniseIsoMonth(iso) {
 // figures, its bi-temporal marks and the newest register's callsign total
 // become derived (retiring the hand-authored values for the enhanced render),
 // while the one figure the manifest does not carry — the 1903 history horizon —
-// stays the report-cited constant of the base model. The grounded base model
-// remains the no-JS baseline; this is the progressive enhancement layered over
-// it once the manifest arrives.
+// stays the report-cited constant of the base model. The script applies it once
+// the manifest arrives; the deploy applies it, without the marks, to stamp the
+// no-script baseline (src/ci/build-v1-home-static.ts).
 /** @param {HomeModel} base @param {HomeHoldings} holdings @returns {HomeModel} */
 export function enhanceHomeModel(base, holdings) {
   const heldStartYear = holdings.heldStartYear ?? base.span.heldStartYear;
@@ -989,6 +999,29 @@ export function renderHomeSections(root, model, order = HOME_SECTION_ORDER, regi
 // loaded: on 2026-09-22 only "at a glance" was re-mounted, and the page went on
 // naming the previous publication two sections further down.
 export const MANIFEST_DERIVED_SECTIONS = ['at-a-glance', 'from-the-record'];
+
+/**
+ * Render the home sections over the served page, keeping any manifest-derived
+ * section the page already carries. The deploy stamps those from the newest
+ * manifest (src/ci/build-v1-home-static.ts), so they are at least as current as
+ * this module's defaults: replacing them would show the defaults while the
+ * manifest loads, and leave them standing for good if it never arrives.
+ * @param {HTMLElement} root
+ * @param {HomeModel} model
+ */
+export function renderHomeOverBaseline(root, model) {
+  /** @type {Map<string, Element>} */
+  const served = new Map();
+  for (const id of MANIFEST_DERIVED_SECTIONS) {
+    const section = root.querySelector(`section[data-section="${id}"]`);
+    if (section !== null) served.set(id, section);
+  }
+  root.textContent = '';
+  renderHomeSections(root, model);
+  for (const [id, section] of served) {
+    root.querySelector(`section[data-section="${id}"]`)?.replaceWith(section);
+  }
+}
 
 /**
  * Re-mount the manifest-derived sections of an already-rendered home page from
