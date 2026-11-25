@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { dataBranchName, gitCommitAndPush, tryFastForwardPull } from './scheduled-run.ts';
+import { dataBranchName, detectHeldPublications, gitCommitAndPush, tryFastForwardPull } from './scheduled-run.ts';
 import { DIRS } from './shared/constants.ts';
 import { FILES } from './sources/ofcom-amateur/constants.ts';
 
@@ -207,5 +207,125 @@ describe('fetch-host convergence after PR merge', { tags: ['unit'] }, () => {
 
     expect(pull.success).toBe(true);
     expect(git(clone, 'rev-parse', 'HEAD')).toBe(git(origin, 'rev-parse', 'refs/heads/main'));
+  });
+});
+
+// A publication the fetch host committed stays on its local main until the
+// data pull request merges, so "what is held" is what local main has and
+// origin's main does not. Each scenario fixes the commit's author date, which
+// is the known answer the detection must report back.
+describe('detectHeldPublications', { tags: ['unit'] }, () => {
+  let originalAuthorDate: string | undefined;
+
+  beforeEach(() => {
+    originalAuthorDate = process.env.GIT_AUTHOR_DATE;
+  });
+
+  afterEach(() => {
+    if (originalAuthorDate === undefined) delete process.env.GIT_AUTHOR_DATE;
+    else process.env.GIT_AUTHOR_DATE = originalAuthorDate;
+  });
+
+  function publish(archiveKey: string, authoredAt: string): void {
+    simulatePublication(clone, archiveKey);
+    process.env.GIT_AUTHOR_DATE = authoredAt;
+    gitCommitAndPush(`publication ${archiveKey}`, archiveKey);
+  }
+
+  function mergeOnOrigin(branch: string): void {
+    const merger = path.join(tmpRoot, `merger-${branch.replace('/', '-')}`);
+    execFileSync('git', ['clone', origin, merger], { stdio: 'pipe' });
+    git(merger, 'config', 'user.name', 'GitHub');
+    git(merger, 'config', 'user.email', 'noreply@github.test');
+    git(merger, 'merge', '--no-ff', '-m', `Merge ${branch}`, `origin/${branch}`);
+    git(merger, 'push', 'origin', 'main');
+  }
+
+  function commitUnrelatedChangeToOriginMain(): void {
+    const dev = path.join(tmpRoot, 'dev');
+    execFileSync('git', ['clone', origin, dev], { stdio: 'pipe' });
+    git(dev, 'config', 'user.name', 'Dev');
+    git(dev, 'config', 'user.email', 'dev@test.invalid');
+    fs.writeFileSync(path.join(dev, 'NOTES.md'), 'a code change\n');
+    git(dev, 'add', 'NOTES.md');
+    git(dev, 'commit', '-m', 'a code change');
+    git(dev, 'push', 'origin', 'main');
+  }
+
+  it('HeldPublications_WhenNothingAwaitsMerge_ReportsNone', () => {
+    expect(detectHeldPublications()).toEqual({ count: 0 });
+  });
+
+  it('HeldPublications_WhenOnePublicationPushedButNotMerged_ReportsItWithItsAuthorDate', () => {
+    publish('2026-07-06', '2026-07-06T10:00:00+00:00');
+
+    expect(detectHeldPublications()).toEqual({
+      count: 1,
+      oldestSubject: 'publication 2026-07-06',
+      oldestAuthoredAt: new Date('2026-07-06T10:00:00Z'),
+    });
+  });
+
+  it('HeldPublications_WhenPushFailed_StillReportsTheLocalCommit', () => {
+    // A publication that never left the host is the most held of all.
+    git(clone, 'remote', 'set-url', 'origin', path.join(tmpRoot, 'no-such-remote.git'));
+    publish('2026-07-06', '2026-07-06T10:00:00+00:00');
+
+    expect(detectHeldPublications()).toMatchObject({ count: 1, oldestSubject: 'publication 2026-07-06' });
+  });
+
+  it('HeldPublications_WhenTwoAwaitMerge_CountsBothAndAgesFromTheOlder', () => {
+    publish('2026-07-06', '2026-07-06T10:00:00+00:00');
+    publish('2026-07-07', '2026-07-07T10:00:00+00:00');
+
+    expect(detectHeldPublications()).toEqual({
+      count: 2,
+      oldestSubject: 'publication 2026-07-06',
+      oldestAuthoredAt: new Date('2026-07-06T10:00:00Z'),
+    });
+  });
+
+  it('HeldPublications_WhenMainMovedWithoutMergingIt_StillReportsIt', () => {
+    // The state the 22 September 2026 publication sat in for two months:
+    // main kept moving, the data commit never joined it, and the tick-start
+    // pull could no longer fast-forward.
+    publish('2026-07-06', '2026-07-06T10:00:00+00:00');
+    commitUnrelatedChangeToOriginMain();
+    tryFastForwardPull();
+
+    expect(detectHeldPublications()).toMatchObject({
+      count: 1,
+      oldestAuthoredAt: new Date('2026-07-06T10:00:00Z'),
+    });
+  });
+
+  it('HeldPublications_WhenMergedByMergeCommitAndPulled_ReportsNone', () => {
+    publish('2026-07-06', '2026-07-06T10:00:00+00:00');
+    mergeOnOrigin('data/2026-07-06');
+    tryFastForwardPull();
+
+    expect(detectHeldPublications()).toEqual({ count: 0 });
+  });
+
+  it('HeldPublications_WhenMergedAfterMainHadMoved_ReportsNone', () => {
+    // Landed late, as September's did: main moved first, then a merge commit
+    // carried the host's own commit in.
+    publish('2026-07-06', '2026-07-06T10:00:00+00:00');
+    commitUnrelatedChangeToOriginMain();
+    mergeOnOrigin('data/2026-07-06');
+    tryFastForwardPull();
+
+    expect(detectHeldPublications()).toEqual({ count: 0 });
+  });
+
+  it('HeldPublications_WhenNotInAGitCheckout_ReturnsNull', () => {
+    const notARepo = fs.mkdtempSync(path.join(os.tmpdir(), 'callsigns-not-a-repo-'));
+    try {
+      process.chdir(notARepo);
+      expect(detectHeldPublications()).toBeNull();
+    } finally {
+      process.chdir(clone);
+      fs.rmSync(notARepo, { recursive: true, force: true });
+    }
   });
 });

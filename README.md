@@ -305,6 +305,8 @@ Priorities used by the orchestrator:
 - **DEFAULT** (priority 3): second consecutive failure.
 - **LOW** (priority 2): first consecutive failure (transient blip); systemd unit drift (repo units differ from deployed); working-tree drift (unstaged changes); persistent git operation failure (pull, rebase, push).
 
+A publication that has been fetched but has not reached `main` has its own repeating reminder: silent at first (the landing itself is announced at HIGH), then DEFAULT, then HIGH, repeating until the host's commits are on `main`. The waits are named constants beside `detectHeldPublications` in `src/scheduled-run.ts`.
+
 Drift and git-failure notifications are fingerprinted and rate-limited to at most one per 24h per unique state, and clear automatically when the underlying issue resolves.
 
 Notifications are a *separate* stream from any noisy alerting you already have (e.g. Telegram bots, HA notifications for door sensors). A long random ntfy topic name = effectively a private channel.
