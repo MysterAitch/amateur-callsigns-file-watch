@@ -387,14 +387,14 @@ describe('reprocessing stratification - snapshots newer than the ceiling', { tag
       newer('2025-09-11', 146_201), newer('2025-11-11', 159_895), newer('2026-01-14', 160_004),
       newer('2026-06-23', 158_318), newer('2026-09-22', 163_341),
     ]));
-    expect(report).toContain('The ceiling is NOT the newest snapshot held. Five newer snapshots of at least 3');
+    expect(report).toContain('The ceiling is NOT the newest snapshot held. Five newer snapshots\nof at least 3 subjects');
     expect(report).toContain('(2025-09-11, 2025-11-11, 2026-01-14, 2026-06-23, 2026-09-22; 146,201–163,341 subjects each)');
     expect(report).toContain('are absent because they carry no `record-last-modified` touch signal at all');
   });
 
   it('CeilingNote_WhenOneSnapshotFollowsTheCeiling_ReadsInTheSingular', () => {
     const report = renderReprocessingStratification(stratWithNewer([newer('2025-09-11', 146_201)]));
-    expect(report).toContain('One newer snapshot of at least 3 subjects');
+    expect(report).toContain('One newer snapshot\nof at least 3 subjects');
     expect(report).toContain('(2025-09-11; 146,201 subjects)');
     expect(report).toContain('is absent because it carries no `record-last-modified` touch signal at all');
   });

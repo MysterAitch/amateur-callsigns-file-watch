@@ -612,9 +612,10 @@ function renderCeilingNote(strat: ReprocessingStratification): string[] {
     ? `${one ? 'is absent because it carries' : 'are absent because they carry'} no \`record-last-modified\` touch signal at all`
     : `${one ? 'is absent because it carries' : 'are absent because they carry'} the \`record-last-modified\` touch signal for fewer than ${floor} subjects (${partlyTouched.map(s => `${s.vintage}: ${num(s.touchSubjects)}`).join(', ')}) or not at all`;
   return [
-    `The ceiling is NOT the newest snapshot held. ${countWord} newer snapshot${one ? '' : 's'} of at least ${floor} subjects`,
-    `(${newer.map(s => s.vintage).join(', ')}; ${size})`,
-    `${why}. When this was first found, the open-data lane had stopped populating`,
+    `The ceiling is NOT the newest snapshot held. ${countWord} newer snapshot${one ? '' : 's'}`,
+    `of at least ${floor} subjects (${newer.map(s => s.vintage).join(', ')}; ${size})`,
+    `${why}.`,
+    'When this was first found, the open-data lane had stopped populating',
     '`created_date` / `last_modified_date` after 2025-06-04 (the columns are present',
     'but blank) and populated the licence-version date family instead, while the',
     '2025-09-11 FOI export renders a licence-scoped last-modified, a different kind.',

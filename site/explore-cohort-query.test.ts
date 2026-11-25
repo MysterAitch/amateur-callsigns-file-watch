@@ -72,6 +72,13 @@ describe('Explore page - the current-register cohort example', { tags: ['unit'] 
     expect(cohort(databaseHolding([JUNE, SEPTEMBER, truncated], []))).toEqual(['M7QNF']);
   });
 
+  it('CohortExample_WhenTheNewestPublicationDeclaresNoCoverage_StillTakesIt', () => {
+    // A publication that declares nothing about its coverage is not a declared
+    // truncation, so it is the current register.
+    const undeclared: Publication = { dataset: '2026-12-15', intendedComplete: '', callsigns: ['2E0QNF'] };
+    expect(cohort(databaseHolding([JUNE, SEPTEMBER, undeclared], []))).toEqual(['2E0QNF']);
+  });
+
   it('CohortExample_WhenTheCallsignWasAlreadyInTheAugust2019Snapshot_LeavesItOut', () => {
     expect(cohort(databaseHolding([JUNE, SEPTEMBER], ['M7QNF']))).toEqual([]);
   });

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { listArchiveKeys } from '../shared/archive.ts';
 import { assertNonEmpty } from '../testing/non-vacuity.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
@@ -44,9 +43,9 @@ const FIRST_VERSION_PATTERN = /\b(?:newest|latest)\b[^.<]{0,80}?(?:\b\d{1,2} (?:
 
 // Hand-written text may not pair a currency word with a date at all: whatever
 // date it names, the next publication makes it wrong. Generated text writes
-// the date in from the data, so there a claim must name the newest publication
-// held - a generated sentence that names an older one is prose the generator
-// hard-codes, which is the same fault one step removed.
+// the date in from the data, so there a claim must name the newest date the
+// reports name (newestNamedInReports) - a generated sentence that names an
+// older one is prose the generator hard-codes, the same fault one step removed.
 type EstateKind = 'hand-written' | 'generated';
 
 interface Estate {
@@ -200,9 +199,27 @@ function claimsIn(text: string, kind: EstateKind, newestHeld: string): string[] 
   return offending;
 }
 
-function newestPublicationHeld(): string {
-  const keys = assertNonEmpty(listArchiveKeys(), 'open-data archive keys');
-  return keys[keys.length - 1];
+// The newest date any committed report names in a currency claim. Reports are
+// anchored to each other rather than to the archive: a publication lands in
+// archive/ before the scheduled report sweep regenerates reports/, so an
+// archive anchor would fail every landing pull request on a question the
+// golden-master drift job already owns. What this guard asks is narrower -
+// whether one report's currency sentence names an older date than another's,
+// which is the sign of prose the generator hard-codes.
+function newestNamedInReports(): string {
+  const reports = assertNonEmpty(ESTATES.filter((e) => e.kind === 'generated').flatMap((e) => e.files()), 'committed reports');
+  let newest = '';
+  for (const file of reports) {
+    const text = fs.readFileSync(file, 'utf8');
+    for (const m of text.matchAll(CURRENCY_WITH_A_DATE)) {
+      if (isAllowed({ file, claim: normaliseSpace(m[0]) })) continue;
+      for (const iso of sentenceFrom(text, m.index).match(/\b\d{4}-\d{2}-\d{2}\b/g) ?? []) {
+        if (iso > newest) newest = iso;
+      }
+    }
+  }
+  expect(newest, 'no report names a newest publication, so the generated-report rule has nothing to compare against').not.toBe('');
+  return newest;
 }
 
 function claimsInEstate(estate: Estate, newestHeld: string): Claim[] {
@@ -218,7 +235,7 @@ function isAllowed(found: Claim): boolean {
 
 describe('hand-written "newest" claims across the site, generators, reports and hypothesis register', { tags: ['unit'] }, () => {
   it('EveryCoveredEstate_OutsideTheAllowedClaims_NeverPairsACurrencyWordWithAStaleDate', () => {
-    const newestHeld = newestPublicationHeld();
+    const newestHeld = newestNamedInReports();
     const offenders = ESTATES
       .flatMap((estate) => claimsInEstate(estate, newestHeld))
       .filter((found) => !isAllowed(found))
@@ -228,7 +245,7 @@ describe('hand-written "newest" claims across the site, generators, reports and 
   });
 
   it('AllowedClaims_StillPresent_SoAnExceptionIsNotLeftBehindOnceFixed', () => {
-    const newestHeld = newestPublicationHeld();
+    const newestHeld = newestNamedInReports();
     const found = ESTATES.flatMap((estate) => claimsInEstate(estate, newestHeld));
     for (const allowed of ALLOWED) {
       const stillThere = found.some((f) => f.file === allowed.file && f.claim.startsWith(allowed.claimStartsWith));
