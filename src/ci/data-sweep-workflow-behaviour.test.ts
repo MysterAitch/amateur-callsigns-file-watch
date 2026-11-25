@@ -3,103 +3,39 @@ import { execFileSync, spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import * as yaml from 'js-yaml';
+import { FOREIGN_PR_URL, GhStandIn, PR_URL, RUNS_HERE, git, requireBashAndJq, stepScript } from './sweep-step-harness.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
 // The data sweep's shell step, EXECUTED: the step's script is lifted out of
 // the workflow file and run by bash against real temporary git repositories,
 // with a stand-in `gh` that answers from a state directory and records every
-// call. The sibling structure test pins the script's text; this pins what the
-// script does, which is the only way to see a fault in its control flow.
+// call (sweep-step-harness.ts). The sibling structure test pins the script's
+// text; this pins what the script does, which is the only way to see a fault
+// in its control flow.
 //
 // It exists because of the 22 September 2026 publication. `gh pr create`
 // answered HTTP 502 after the pull request had been created, the step stopped
 // there, and every later sweep saw an open pull request and moved on - so the
 // pull request never had auto-merge enabled, an assignee, or a digest entry.
-//
-// The stand-in `gh` evaluates `--jq` with the real jq, and the script is bash,
-// so this runs on Linux (CI) and is skipped on Windows, where neither is a
-// given. On Linux a missing bash or jq is a failure, not a skip.
 
 const WORKFLOW = path.join('.github', 'workflows', 'data-sweep.yml');
 const STEP_NAME = 'Open PRs for data branches';
-const PR_URL = 'https://github.test/example/repo/pull/7';
-const FOREIGN_PR_URL = 'https://github.test/example/repo/pull/66';
-const RUNS_HERE = process.platform !== 'win32';
-
-interface WorkflowShape {
-  jobs: { sweep: { steps: Array<{ name?: string; run?: string }> } };
-}
-
-function sweepScript(): string {
-  const wf = yaml.load(fs.readFileSync(WORKFLOW, 'utf8')) as WorkflowShape;
-  const step = wf.jobs.sweep.steps.find((s) => s.name === STEP_NAME);
-  if (step?.run === undefined) throw new Error(`step "${STEP_NAME}" not found in ${WORKFLOW}`);
-  return step.run;
-}
-
-// Answers from files in $GH_STUB_DIR and appends each call to calls.log.
-//   pr.json                      what `gh pr list` returns (a JSON array)
-//   create-fails-after-creating  `pr create` creates the pull request, then exits 1
-//   create-fails                 `pr create` exits 1 and creates nothing
-//   merge-fails                  `pr merge` exits 1
-const GH_STUB = `#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\\n' "$*" >> "$GH_STUB_DIR/calls.log"
-jq_expr=""
-args=("$@")
-for ((i = 0; i < \${#args[@]}; i++)); do
-  if [ "\${args[i]}" = "--jq" ]; then jq_expr="\${args[i + 1]}"; fi
-done
-emit() { if [ -n "$jq_expr" ]; then jq -r "$jq_expr"; else cat; fi; }
-created='{"number":7,"url":"${PR_URL}","isCrossRepository":false,"headRefOid":"'"$(cat "$GH_STUB_DIR/tip" 2>/dev/null || true)"'","autoMergeRequest":null,"assignees":[],"comments":[]}'
-case "$1 $2" in
-  "pr list") emit < "$GH_STUB_DIR/pr.json" ;;
-  "pr create")
-    if [ -f "$GH_STUB_DIR/create-fails" ]; then echo "pull request create failed" >&2; exit 1; fi
-    jq -c --argjson new "$created" '. + [$new]' "$GH_STUB_DIR/pr.json" > "$GH_STUB_DIR/pr.json.next"
-    mv "$GH_STUB_DIR/pr.json.next" "$GH_STUB_DIR/pr.json"
-    if [ -f "$GH_STUB_DIR/create-fails-after-creating" ]; then
-      echo "pull request create failed: HTTP 502: 502 Bad Gateway" >&2
-      exit 1
-    fi
-    echo "${PR_URL}"
-    ;;
-  "pr merge") if [ -f "$GH_STUB_DIR/merge-fails" ]; then exit 1; fi ;;
-  "pr edit" | "pr comment" | "issue comment") ;;
-  "issue list") echo '[{"number":5,"title":"Data landings (rolling digest)"}]' | emit ;;
-  "issue create") echo "https://github.test/example/repo/issues/5" ;;
-  "api repos/example/repo") echo '{"owner":{"login":"the-owner"}}' | emit ;;
-  *) echo "gh stand-in: unexpected call: $*" >&2; exit 97 ;;
-esac
-`;
-
-function git(cwd: string, ...args: string[]): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-}
 
 describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () => {
   let root: string;
   let origin: string;
   let runner: string; // plays the workflow's checkout of main
   let host: string; // plays the fetch host pushing data/* branches
-  let stubDir: string;
+  let gh: GhStandIn;
 
-  beforeAll(() => {
-    for (const tool of ['bash', 'jq']) {
-      const probe = spawnSync(tool, ['--version'], { encoding: 'utf8' });
-      if (probe.status !== 0) throw new Error(`${tool} is required to execute the sweep step and was not found`);
-    }
-  });
+  beforeAll(requireBashAndJq);
 
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'callsigns-sweep-'));
     origin = path.join(root, 'origin.git');
     runner = path.join(root, 'runner');
     host = path.join(root, 'host');
-    stubDir = path.join(root, 'gh-state');
-    const binDir = path.join(root, 'bin');
 
     execFileSync('git', ['init', '--bare', '--initial-branch=main', origin], { stdio: 'pipe' });
     execFileSync('git', ['clone', origin, host], { stdio: 'pipe' });
@@ -112,12 +48,8 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
     git(host, 'push', 'origin', 'main');
     execFileSync('git', ['clone', origin, runner], { stdio: 'pipe' });
 
-    fs.mkdirSync(stubDir);
-    fs.writeFileSync(path.join(stubDir, 'pr.json'), '[]\n');
-    fs.writeFileSync(path.join(stubDir, 'calls.log'), '');
-    fs.mkdirSync(binDir);
-    fs.writeFileSync(path.join(binDir, 'gh'), GH_STUB, { mode: 0o755 });
-    fs.writeFileSync(path.join(root, 'sweep.sh'), sweepScript());
+    gh = new GhStandIn(root);
+    fs.writeFileSync(path.join(root, 'sweep.sh'), stepScript(WORKFLOW, 'sweep', STEP_NAME));
   });
 
   afterEach(() => {
@@ -135,7 +67,7 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
     git(host, 'add', '-A');
     git(host, 'commit', '-m', `Update amateur callsigns CSV (${archiveKey})`);
     git(host, 'push', 'origin', `HEAD:refs/heads/data/${archiveKey}`);
-    fs.writeFileSync(path.join(stubDir, 'tip'), git(host, 'rev-parse', 'HEAD'));
+    gh.setTip(git(host, 'rev-parse', 'HEAD'));
   }
 
   // An open pull request whose head branch has the data branch's name. By
@@ -149,21 +81,13 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
     fromAFork?: boolean;
     head?: string;
   }): void {
-    const pr = {
-      number: fields.fromAFork === true ? 66 : 7,
-      url: fields.fromAFork === true ? FOREIGN_PR_URL : PR_URL,
-      isCrossRepository: fields.fromAFork === true,
-      headRefOid: fields.head ?? fs.readFileSync(path.join(stubDir, 'tip'), 'utf8'),
-      autoMergeRequest: fields.autoMerge === true ? { mergeMethod: 'MERGE' } : null,
-      assignees: (fields.assignees ?? []).map((login) => ({ login })),
-      comments: (fields.comments ?? []).map((body) => ({ body })),
-    };
-    fs.writeFileSync(path.join(stubDir, 'pr.json'), `${JSON.stringify([pr])}\n`);
+    gh.openPullRequest({ ...fields, head: fields.head ?? gh.tip() });
   }
 
-  function flag(name: string): void {
-    fs.writeFileSync(path.join(stubDir, name), '');
-  }
+  const flag = (name: string): void => gh.flag(name);
+  const calls = (): string[] => gh.calls();
+  const callLines = (): string[] => gh.callLines();
+  const callsNaming = (prUrl: string): string[] => gh.callsNaming(prUrl);
 
   function runSweep(): { status: number | null; output: string } {
     // A real run checks main out as the job starts, so its view of main is
@@ -172,32 +96,9 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
     const result = spawnSync('bash', [path.join(root, 'sweep.sh')], {
       cwd: runner,
       encoding: 'utf8',
-      env: {
-        ...process.env,
-        PATH: `${path.join(root, 'bin')}${path.delimiter}${process.env.PATH ?? ''}`,
-        GH_STUB_DIR: stubDir,
-        GITHUB_REPOSITORY: 'example/repo',
-      },
+      env: gh.env(),
     });
     return { status: result.status, output: `${result.stdout}\n${result.stderr}` };
-  }
-
-  // The first two words of each recorded call, in order: what the step did.
-  function calls(): string[] {
-    return fs
-      .readFileSync(path.join(stubDir, 'calls.log'), 'utf8')
-      .split('\n')
-      .filter((line) => line.length > 0)
-      .map((line) => line.split(' ').slice(0, 2).join(' '));
-  }
-
-  function callLines(): string[] {
-    return fs.readFileSync(path.join(stubDir, 'calls.log'), 'utf8').split('\n').filter((line) => line.length > 0);
-  }
-
-  // Recorded calls that were given this pull request as a whole argument.
-  function callsNaming(prUrl: string): string[] {
-    return callLines().filter((line) => line.split(' ').some((argument) => argument === prUrl));
   }
 
   const FINISHING_CALLS = ['pr merge', 'api repos/example/repo', 'pr edit', 'issue list', 'issue comment'];
@@ -291,8 +192,13 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
     expect(calls()).toEqual(['pr list', 'pr create', 'pr merge', 'pr comment']);
   });
 
-  it('DataBranch_WhenItTouchesANonDataPath_IsOpenedForReviewAndNeverAutoMerged', () => {
-    pushDataBranch('2026-07-06', 'src/smuggled.ts');
+  // The second path is what the Special Contest Calls sweep pushes, to a
+  // branch this sweep also iterates because its name starts with data/.
+  it.each([
+    ['2026-07-06', 'src/smuggled.ts'],
+    ['scc-2026-11-01', 'reference-data/rsgb-special-contest-calls.csv'],
+  ])('DataBranch_WhenItTouchesANonDataPath_IsOpenedForReviewAndNeverAutoMerged (data/%s, %s)', (key, nonDataPath) => {
+    pushDataBranch(key, nonDataPath);
 
     const run = runSweep();
 
