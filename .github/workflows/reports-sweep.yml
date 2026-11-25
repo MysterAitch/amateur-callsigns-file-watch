@@ -121,6 +121,18 @@ jobs:
             echo "No report changes."
             exit 0
           fi
+          # A run that is run again after opening its pull request (it goes
+          # red by design when an entry failed to report, which is after
+          # this step) must not open a second one. The checks are dispatched
+          # again because an attempt can also have stopped between opening
+          # the pull request and dispatching them, and a repeat is harmless.
+          earlier="$(gh pr list --state open --json url,headRefName,isCrossRepository \
+            --jq 'map(select((.isCrossRepository | not) and (.headRefName | startswith("reports/run-'"$RUN_ID"'-")))) | .[0] // empty | [.url, .headRefName] | @tsv')"
+          if [ -n "$earlier" ]; then
+            echo "An earlier attempt of this run opened ${earlier%%$'\t'*}; dispatching its checks again instead of opening another."
+            gh workflow run cicd.yaml --ref "${earlier##*$'\t'}"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # The attempt number is part of the name because re-running a
