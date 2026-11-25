@@ -216,6 +216,31 @@ describe('v1 on-this-day — calendar render', { tags: ['unit'] }, () => {
   });
 });
 
+describe('v1 on-this-day — callsigns lead to their own record', { tags: ['ui'] }, () => {
+  it('OnThisDayEntry_ForEveryCallsignItNames_LinksToThatCallsignsLookupPage', () => {
+    const surface = serveStatic(makeData());
+    const links = [...surface.querySelectorAll<HTMLAnchorElement>('.evt .dsc a.cs')].map((a) => [a.textContent, a.getAttribute('href')]);
+    // In calendar order: 16 April before 18 October.
+    expect(links).toEqual([
+      ['M0ZZZ', 'callsign.html?c=M0ZZZ'],
+      ['M7ABC', 'callsign.html?c=M7ABC'],
+      ['M7XYZ', 'callsign.html?c=M7XYZ'],
+    ]);
+  });
+
+  it('OnThisDayEntry_WhenACallsignCarriesCharactersAnAddressReserves_EncodesThemInTheLinkAndShowsThemAsText', () => {
+    // Unhappy path: a manifest value is untrusted input. A slash or an
+    // ampersand must not reshape the address, and markup must stay text.
+    const surface = serveStatic(makeData({
+      entries: [{ monthDay: '02-01', year: '2020', day: '2020-02-01', series: 'M', event: 'first-start', callsigns: ['M/KQ4U&x=<b>'], kindLabels: [], datasetIdxs: [0], caveatIds: [], seriesIntroduced: '', predatesSeriesIntroduction: false }],
+    }));
+    const a = surface.querySelector<HTMLAnchorElement>('.evt .dsc a.cs');
+    expect(a?.getAttribute('href')).toBe('callsign.html?c=M%2FKQ4U%26x%3D%3Cb%3E');
+    expect(a?.textContent).toBe('M/KQ4U&x=<b>');
+    expect(surface.querySelector('.evt b')).toBeNull();
+  });
+});
+
 describe('v1 on-this-day — today signpost', { tags: ['ui'] }, () => {
   it('Today_WhenTheHeldRecordCarriesEntries_SurfacesACalloutLinkingToTheDay', () => {
     const surface = serveStatic(makeData());
