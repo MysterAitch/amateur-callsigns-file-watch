@@ -184,7 +184,10 @@ function longFormDate(iso: string): string {
   return `${day} ${name} ${year}`;
 }
 
-function claimsIn(text: string, kind: EstateKind, newestHeld: string): string[] {
+// Line endings are normalised first, so a Windows checkout measures the
+// distance from currency word to date exactly as CI on Linux does.
+function claimsIn(raw: string, kind: EstateKind, newestHeld: string): string[] {
+  const text = raw.replace(/\r\n/g, '\n');
   const offending: string[] = [];
   for (const m of text.matchAll(CURRENCY_WITH_A_DATE)) {
     if (kind === 'generated') {
@@ -340,6 +343,16 @@ describe('newest-claim guard - constructed sentences', { tags: ['unit'] }, () =>
       expect(claimsIn(c.text, c.kind, NEWEST).length, 'this guard').toBe(c.now);
     });
   }
+
+  it('ClaimSpanningLines_WhenCheckedOutWithWindowsLineEndings_IsFoundAsOnLinux', () => {
+    // A comment claim whose date sits about eighty characters after its
+    // currency word was found by CI on Linux and missed on a Windows checkout,
+    // because each carriage return counted against the distance.
+    const lf = ' * does not fire against the current\n * (very small, ~9-dataset) held corpus: one neighbour in the same window\n * (2025-06-04) is itself';
+    const crlf = lf.replace(/\n/g, '\r\n');
+    expect(claimsIn(lf, 'hand-written', NEWEST)).toHaveLength(1);
+    expect(claimsIn(crlf, 'hand-written', NEWEST)).toHaveLength(1);
+  });
 
   it('GeneratedReport_WhenTheNextPublicationLands_TheFormerNewestBecomesAnOffence', () => {
     const text = 'the latest register (`2026-09-22`) carries 163,342 rows';
