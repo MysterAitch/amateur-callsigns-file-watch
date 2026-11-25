@@ -129,11 +129,22 @@
       here): forbidden-suffix callsigns in the current register that were
       absent from the August 2019 FOI snapshot — the "issued after the
       withheld list existed" candidates (each needs per-member checking:
-      artefact fixes and heritage re-issues are innocent explanations):</p>
-      <div class="overflow" style="overflow-x:auto"><pre><code>SELECT rh.callsign, rh.status, rh.licence_version_original_start_date
+      artefact fixes and heritage re-issues are innocent explanations). The
+      current register is chosen in the query itself, so the example follows
+      each new publication without being edited: it is the newest publication
+      held that is complete in the sense the history view uses - declared
+      complete by its publisher, with no observation that it silently omits
+      records - and its date is the first column of every row. An empty result
+      means either that no held publication is complete in this sense, or that
+      no forbidden-suffix callsign in it is missing from the August 2019
+      snapshot; run the inner SELECT on its own to tell which:</p>
+      <div class="overflow" style="overflow-x:auto"><pre><code>SELECT rh.dataset, rh.callsign, rh.status, rh.licence_version_original_start_date
 FROM register_history rh
 JOIN ref_forbidden_suffixes f ON f.suffix = rh.suffix
-WHERE rh.dataset = '2026-06-23'
+WHERE rh.dataset = (
+    SELECT MAX(dataset) FROM history_datasets
+    WHERE intended_complete = 'true'
+      AND COALESCE(coverage_affecting, '') = '')
   AND rh.cleaned NOT IN (
     SELECT cleaned FROM observations
     WHERE entry = 'wdtk-596532--allocated-reserved-forbidden')
