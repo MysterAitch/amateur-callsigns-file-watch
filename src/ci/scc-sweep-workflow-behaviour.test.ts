@@ -173,8 +173,11 @@ describe.skipIf(!RUNS_HERE)('Special Contest Calls sweep step, executed', { tags
   });
 
   it('SccSweep_WhenOnlyAForksPullRequestExistsAndCreateFails_FailsTheJobWithoutTouchingTheForks', () => {
+    // The fork's branch carries the very name this run pushes, so nothing
+    // but its being a fork's tells it apart in the lookup after the create.
     tableChanged();
-    gh.openPullRequest({ headName: EARLIER_BRANCH, head: 'a'.repeat(40), fromAFork: true });
+    const todaysBranch = `data/scc-${new Date().toISOString().slice(0, 10)}`;
+    gh.openPullRequest({ headName: todaysBranch, head: 'a'.repeat(40), fromAFork: true });
     gh.flag('create-fails');
 
     const run = runStep();

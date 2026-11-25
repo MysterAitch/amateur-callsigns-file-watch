@@ -131,8 +131,8 @@ describe.skipIf(!RUNS_HERE)('report sweep pull request step, executed', { tags: 
     const run = runStep();
 
     expect(run.status, run.output).toBe(0);
-    expect(gh.calls()).toEqual(['pr create', 'workflow run']);
-    expect(gh.callLines()[1]).toBe('workflow run cicd.yaml --ref reports/run-4242-1');
+    expect(gh.calls()).toEqual(['pr list', 'pr create', 'workflow run']);
+    expect(gh.callLines().at(-1)).toBe('workflow run cicd.yaml --ref reports/run-4242-1');
     expect(reportBranchesOnOrigin()).toEqual(['reports/run-4242-1']);
     expect(git(origin, 'diff', '--name-only', 'main', 'reports/run-4242-1')).toBe('reports/summary.md');
     expect(fs.readFileSync(path.join(runnerTemp, 'pr-body.md'), 'utf8')).toContain('All 3 entries reported.');
@@ -147,8 +147,8 @@ describe.skipIf(!RUNS_HERE)('report sweep pull request step, executed', { tags: 
     const run = runStep();
 
     expect(run.status, run.output).toBe(0);
-    expect(gh.calls()).toEqual(['pr create', 'pr list', 'workflow run']);
-    expect(gh.callLines()[2]).toBe('workflow run cicd.yaml --ref reports/run-4242-1');
+    expect(gh.calls()).toEqual(['pr list', 'pr create', 'pr list', 'workflow run']);
+    expect(gh.callLines().at(-1)).toBe('workflow run cicd.yaml --ref reports/run-4242-1');
   });
 
   it('ReportSweep_WhenCreateFailsAndNoPullRequestExists_FailsTheJobWithoutDispatching', () => {
@@ -171,7 +171,32 @@ describe.skipIf(!RUNS_HERE)('report sweep pull request step, executed', { tags: 
     const run = runStep();
 
     expect(run.status, run.output).not.toBe(0);
-    expect(gh.calls()).toEqual(['pr create', 'pr list']);
+    expect(gh.calls()).toEqual(['pr list', 'pr create', 'pr list']);
+  });
+
+  it('ReportSweep_WhenAnEarlierAttemptOfTheRunOpenedItsPullRequest_DispatchesItsChecksAgainWithoutOpeningAnother', () => {
+    // The run goes red by design when an entry failed to report, after its
+    // pull request is open. Running it again must not open a second one;
+    // dispatching again covers an attempt that stopped before its dispatch.
+    sweepRegeneratedAReport();
+    gh.openPullRequest({ headName: 'reports/run-4242-1', head: 'a'.repeat(40) });
+
+    const rerun = runStep(2);
+
+    expect(rerun.status, rerun.output).toBe(0);
+    expect(gh.calls()).toEqual(['pr list', 'workflow run']);
+    expect(gh.callLines().at(-1)).toBe('workflow run cicd.yaml --ref reports/run-4242-1');
+    expect(reportBranchesOnOrigin()).toEqual([]);
+  });
+
+  it('ReportSweep_WhenAnotherRunsPullRequestIsOpen_StillOpensItsOwn', () => {
+    sweepRegeneratedAReport();
+    gh.openPullRequest({ headName: 'reports/run-4241-1', head: 'a'.repeat(40) });
+
+    const run = runStep();
+
+    expect(run.status, run.output).toBe(0);
+    expect(gh.calls()).toEqual(['pr list', 'pr create', 'workflow run']);
   });
 
   it('ReportSweep_WhenAFailedRunIsRunAgain_OpensItsPullRequestFromAFreshBranch', () => {
