@@ -96,15 +96,20 @@ jobs:
           echo "exitcode=$?" >> "$GITHUB_OUTPUT"
 
       - name: Open PR for changed reports
+        # Everything the script needs from the run arrives as environment, so
+        # the script is plain bash and reports-sweep-workflow-behaviour.test.ts
+        # can execute it as written.
         env:
           GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          COVERAGE_FILE: /tmp/coverage.md
         run: |
           set -euo pipefail
           # A missing coverage report means the sweep crashed before
           # reporting (distinct from per-entry failures, which still produce
           # one): whatever is in the working tree is unaccounted for, so do
           # NOT commit or push it - the final step turns the run red.
-          if [ ! -f /tmp/coverage.md ]; then
+          if [ ! -f "$COVERAGE_FILE" ]; then
             echo "::error::Sweep produced no coverage report - refusing to open a PR from unaccounted working-tree state."
             exit 0
           fi
@@ -117,7 +122,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          branch="reports/run-${{ github.run_id }}"
+          branch="reports/run-${RUN_ID}"
           git checkout -b "$branch"
           git add reports/
           git commit -m "Report sweep: regenerate standing reports"
@@ -125,11 +130,11 @@ jobs:
           {
             echo "Scheduled report sweep output. The cross-report diff below is the review artefact - check that changes are expected (a new publication gaining its reports column, or a deliberate fold/render change) before merging."
             echo ""
-            cat /tmp/coverage.md
-          } > /tmp/pr-body.md
+            cat "$COVERAGE_FILE"
+          } > "$RUNNER_TEMP/pr-body.md"
           gh pr create --head "$branch" --base main \
             --title "Report sweep: standing reports update" \
-            --body-file /tmp/pr-body.md
+            --body-file "$RUNNER_TEMP/pr-body.md"
           # The pull_request-triggered CI run for a bot-authored PR parks in
           # action_required (contributor-approval policy). Dispatch CI onto
           # the branch explicitly: workflow_dispatch is exempt from that
