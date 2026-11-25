@@ -9,6 +9,8 @@ import {
   spanDialGeometry,
   enhanceHomeModel,
   parseHoldings,
+  remountManifestSections,
+  MANIFEST_DERIVED_SECTIONS,
   fractionalYearOf,
   milestoneRotationStart,
   humaniseIsoDate,
@@ -696,6 +698,94 @@ describe('v1 home holdings manifest validation (untrusted input)', { tags: ['uni
     expect(cell('span held')?.v).not.toContain('NaN');
     expect(cell('latest snapshot')).toEqual(base.glance.find(c => c.k === 'latest snapshot'));
     expect(enhanced.facts.date).toBe(base.span.latestLabel);
+  });
+
+  // The callsign total and the sentence about the newest publication. After
+  // the 22 September 2026 publication landed, the home page went on saying
+  // "158,318 callsigns" and "(2026-06-23)" because both were written by hand.
+  // The figures used here appear nowhere in the source.
+  it('EnhanceHomeModel_ManifestNamesTheNewestRegister_ShowsItsRecordCountNotTheWrittenOne', () => {
+    const base = defaultHomeModel();
+    const enhanced = enhanceHomeModel(base, { ...holdingsFixture(), latestRegister: { vintage: '2027-03-05', records: 4323 } });
+
+    expect(enhanced.glance.find(c => c.k === 'callsigns')?.v).toBe('4,323');
+    expect(enhanced.glance.find(c => c.k === 'callsigns')?.v).not.toBe(base.glance.find(c => c.k === 'callsigns')?.v);
+  });
+
+  it('EnhanceHomeModel_ManifestNamesTheNewestRegister_RewritesTheNewestPublicationFact', () => {
+    const base = defaultHomeModel();
+    const enhanced = enhanceHomeModel(base, { ...holdingsFixture(), latestRegister: { vintage: '2027-03-05', records: 4323 } });
+    const said = enhanced.fromTheRecord.map(f => `${f.headline} ${f.sentence}`).join(' ');
+
+    expect(enhanced.fromTheRecord).toHaveLength(base.fromTheRecord.length);
+    expect(enhanced.fromTheRecord[0].headline).toBe('4,323 callsigns');
+    expect(enhanced.fromTheRecord[0].sentence).toContain('(2027-03-05)');
+    expect(enhanced.fromTheRecord[0].sentence).toContain('4,323 callsigns');
+    expect(said).not.toContain('158,318');
+    expect(said).not.toContain('2026-06-23');
+    // The facts that are not about the newest publication are untouched.
+    expect(enhanced.fromTheRecord.slice(1)).toEqual(base.fromTheRecord.slice(1));
+  });
+
+  it('EnhanceHomeModel_ManifestNamesNoRegister_KeepsTheBaseFiguresRatherThanInventingOne', () => {
+    const base = defaultHomeModel();
+    const enhanced = enhanceHomeModel(base, { ...holdingsFixture(), latestRegister: null });
+
+    expect(enhanced.glance.find(c => c.k === 'callsigns')).toEqual(base.glance.find(c => c.k === 'callsigns'));
+    expect(enhanced.fromTheRecord).toEqual(base.fromTheRecord);
+  });
+
+  it('HomePage_WhenTheManifestArrives_RedrawsEverySectionThatNamedTheOldPublication', () => {
+    const root = document.createElement('div');
+    renderHomeSections(root, defaultHomeModel());
+    const sectionText = (id: string): string => root.querySelector(`section[data-section="${id}"]`)?.textContent ?? '';
+    // The readout cell labelled "callsigns" (the fixture's own June entry also
+    // carries 158,318 as a row count in the dial, so the section's whole text
+    // cannot be searched for it).
+    const callsignsCell = (): string | null => {
+      const cells = [...root.querySelectorAll('section[data-section="at-a-glance"] .cell')];
+      const cell = cells.find(c => c.querySelector('.k')?.textContent === 'callsigns');
+      return cell?.querySelector('.v')?.textContent ?? null;
+    };
+    // Before: the hand-written figure is on the page.
+    expect(callsignsCell()).toBe('158,318');
+    expect(sectionText('from-the-record')).toContain('158,318');
+
+    remountManifestSections(root, enhanceHomeModel(defaultHomeModel(), {
+      ...holdingsFixture(),
+      latestRegister: { vintage: '2027-03-05', records: 4323 },
+    }));
+
+    expect(callsignsCell()).toBe('4,323');
+    expect(sectionText('from-the-record')).toContain('4,323');
+    expect(sectionText('from-the-record')).not.toContain('158,318');
+    expect(sectionText('from-the-record')).not.toContain('(2026-06-23)');
+    // Still one section per id, in the original order.
+    expect([...root.querySelectorAll('section[data-section]')].map(s => s.getAttribute('data-section'))).toEqual([...HOME_SECTION_ORDER]);
+  });
+
+  it('ManifestDerivedSections_AreAllRegistered_SoARemountCannotSkipOneSilently', () => {
+    for (const id of MANIFEST_DERIVED_SECTIONS) expect(HOME_SECTION_REGISTRY[id], id).toBeDefined();
+    expect(MANIFEST_DERIVED_SECTIONS.length).toBeGreaterThan(0);
+  });
+
+  it('ParseHoldings_ManifestWithTheNewestRegister_CarriesItThrough', () => {
+    const h = parseHoldings({ ...holdingsFixture(), latestRegister: { vintage: '2027-03-05', records: 4323 } });
+
+    expect(h?.latestRegister).toEqual({ vintage: '2027-03-05', records: 4323 });
+  });
+
+  it('ParseHoldings_ManifestFromBeforeTheFieldExisted_ReadsAsNoRegisterNamed', () => {
+    // A cached manifest from an earlier deploy must still parse.
+    expect(parseHoldings(holdingsFixture())?.latestRegister).toBeNull();
+  });
+
+  it('ParseHoldings_MalformedNewestRegister_ReturnsNull', () => {
+    expect(parseHoldings({ ...holdingsFixture(), latestRegister: { vintage: '2027-03-05', records: 'many' } })).toBeNull();
+    expect(parseHoldings({ ...holdingsFixture(), latestRegister: { records: 4323 } })).toBeNull();
+    expect(parseHoldings({ ...holdingsFixture(), latestRegister: 'yes' })).toBeNull();
+    expect(parseHoldings({ ...holdingsFixture(), latestRegister: { vintage: '2027-03-05', records: -1 } })).toBeNull();
+    expect(parseHoldings({ ...holdingsFixture(), latestRegister: { vintage: '2027-03-05', records: 1.5 } })).toBeNull();
   });
 });
 

@@ -7,16 +7,17 @@
 //
 // A second layer of enhancement fetches the build-derived holdings manifest
 // (holdings.json, root-served so the v1 surface stays self-contained) and
-// re-mounts "the record at a glance" with the real per-publication marks and
-// the cited register-history milestones. On any failure the grounded baseline
-// simply stands — the marks are additive, never load-bearing.
+// re-mounts the sections whose content it changes: "the record at a glance",
+// with the real per-publication marks and the cited register-history
+// milestones, and "from the record", whose leading fact names the newest
+// register. On any failure the grounded baseline simply stands.
 
 import { renderSiteBar, renderBreadcrumb, renderFooter, mountInto } from './shell.js';
 import { V1_COPY } from './copy.js';
-import { renderHomeSections, defaultHomeModel, enhanceHomeModel, parseHoldings, HOME_SECTION_REGISTRY } from './home-sections.js';
+import { renderHomeSections, defaultHomeModel, enhanceHomeModel, parseHoldings, remountManifestSections } from './home-sections.js';
 
 /** @param {HTMLElement} root */
-async function enhanceAtAGlance(root) {
+async function enhanceFromHoldings(root) {
   try {
     const res = await fetch(new URL('holdings.json', document.baseURI).toString());
     if (!res.ok) return;
@@ -26,11 +27,7 @@ async function enhanceAtAGlance(root) {
     // degrades to the grounded baseline rather than mis-rendering.
     const holdings = parseHoldings(parsed);
     if (holdings === null) return;
-    const enhanced = enhanceHomeModel(defaultHomeModel(), holdings);
-    const section = root.querySelector('section[data-section="at-a-glance"]');
-    if (section === null) return;
-    section.textContent = '';
-    HOME_SECTION_REGISTRY['at-a-glance'].mount(/** @type {HTMLElement} */ (section), enhanced);
+    remountManifestSections(root, enhanceHomeModel(defaultHomeModel(), holdings));
   } catch {
     // The grounded no-JS baseline stands; the marks are a bonus, not load-bearing.
   }
@@ -45,6 +42,6 @@ if (typeof document !== 'undefined' && document.querySelector('main[data-page="h
   if (root !== null) {
     root.textContent = '';
     renderHomeSections(/** @type {HTMLElement} */ (root), model);
-    void enhanceAtAGlance(/** @type {HTMLElement} */ (root));
+    void enhanceFromHoldings(/** @type {HTMLElement} */ (root));
   }
 }

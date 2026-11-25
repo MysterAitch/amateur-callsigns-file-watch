@@ -160,6 +160,37 @@ describe('home holdings — assembly', { tags: ['unit'] }, () => {
     expect(h.latestDateIso).toBeNull();
   });
 
+  // The home page states how many callsigns the newest register holds. The
+  // figures below appear nowhere in the source, so a passing test cannot be
+  // reading a hand-written constant.
+  it('HomeHoldings_NewestRegisterSnapshot_ReportsItsVintageAndEveryRecordIncludingUnkeyableOnes', () => {
+    const datasets: ManifestDataset[] = [
+      ...DATASETS,
+      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 4321, unkeyable: 2 },
+    ];
+
+    // 4,321 rows the lookup can key plus 2 it cannot: the file holds 4,323.
+    expect(homeHoldings(datasets, PREFIX_ROWS).latestRegister).toEqual({ vintage: '2027-03-05', records: 4323 });
+  });
+
+  it('HomeHoldings_NewestPublicationIsNotARegister_StillReportsTheNewestRegister', () => {
+    const datasets: ManifestDataset[] = [
+      ...DATASETS,
+      { lane: 'foi', vintage: '2028-01-01', title: 'a later disclosure', classes: ['available-pool'], rows: 77 },
+    ];
+
+    const h = homeHoldings(datasets, PREFIX_ROWS);
+
+    expect(h.latestDateIso).toBe('2028-01-01');
+    expect(h.latestRegister).toEqual({ vintage: '2026-06-23', records: 158318 });
+  });
+
+  it('HomeHoldings_NoRegisterSnapshotHeld_ReportsNoLatestRegister', () => {
+    const datasets: ManifestDataset[] = [{ lane: 'foi', vintage: '2021-04', title: 'wdtk-month-only', classes: ['available-pool'], rows: 10 }];
+
+    expect(homeHoldings(datasets, PREFIX_ROWS).latestRegister).toBeNull();
+  });
+
   it('HomeHoldings_BuiltTwice_IsByteIdenticalForTheSameInputs', () => {
     // Deterministic output is what lets the deploy cache and the self-check hold.
     const a = JSON.stringify(homeHoldings(DATASETS, PREFIX_ROWS));

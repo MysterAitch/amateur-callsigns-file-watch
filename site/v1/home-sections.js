@@ -124,6 +124,19 @@ function glanceCells(f) {
   ];
 }
 
+// The from-the-record fact about the newest register snapshot, written from its
+// vintage and record count so the default and the manifest-derived model say it
+// in the same words. It leads the pool, and enhanceHomeModel replaces it by
+// that position.
+/** @param {string} vintageIso @param {number} records */
+function newestPublicationFact(vintageIso, records) {
+  const total = records.toLocaleString('en-GB');
+  return {
+    headline: `${total} callsigns`,
+    sentence: `The newest publication held (${vintageIso}) records ${total} callsigns – the whole body a decade of publications is folded against.`,
+  };
+}
+
 /** @returns {HomeModel} */
 export function defaultHomeModel() {
   const g = GROUNDED_ARCHIVE;
@@ -151,18 +164,16 @@ export function defaultHomeModel() {
     // From-the-record notable-detail pool. A different detail leads each time
     // the newest publication changes, chosen by the seeded rotation above. Each
     // fact is record-scoped and sourced:
-    //  1. reports/curiosity-index.md — the newest publication (2026-06-23)
-    //     holds 158,318 records.
+    //  1. The newest register snapshot's record count (newestPublicationFact):
+    //     the hand-authored default here, replaced from the holdings manifest
+    //     when it arrives.
     //  2. reports/forbidden-suffix-history.md — 1,465 three-letter suffixes
     //     withheld in the 2016-09 disclosure; the set has since shifted
     //     (+JIZ, −QNF, −ZFJ by 2024).
     //  3. reports/prefixes.md — the M2 prefix block appears reserved-only
     //     across the publications held (no issued callsign in it).
     fromTheRecord: [
-      {
-        headline: '158,318 callsigns',
-        sentence: 'The newest publication held (2026-06-23) records 158,318 callsigns – the whole body a decade of publications is folded against.',
-      },
+      newestPublicationFact(g.latestDateIso, g.callsigns),
       {
         headline: '1,465 withheld suffixes',
         sentence: 'The 2016 forbidden-suffix disclosure withheld 1,465 three-letter suffixes from new issues; the held record shows that set shifting since – one added, two dropped by 2024.',
@@ -185,6 +196,7 @@ export function defaultHomeModel() {
  * @property {number | null} heldStartYear
  * @property {number | null} latestYear
  * @property {string | null} latestDateIso
+ * @property {{ vintage: string, records: number } | null} [latestRegister]  the newest register snapshot and its record count; absent or null when the manifest names none
  * @property {HoldingPublication[]} publications
  * @property {HoldingMilestone[]} milestones
  */
@@ -217,23 +229,26 @@ export function humaniseIsoMonth(iso) {
 }
 
 // Fold the build-derived holdings manifest into a home model: the span dial's
-// figures and its bi-temporal marks become derived (retiring the hand-authored
-// count / span / newest-date for the enhanced render), while the figures the
-// manifest does not carry — the 1903 history horizon and the latest-register
-// callsign total — stay the report-cited constants of the base model. The
-// grounded base model remains the honest no-JS baseline; this is the progressive
-// enhancement layered over it once the manifest arrives.
+// figures, its bi-temporal marks and the newest register's callsign total
+// become derived (retiring the hand-authored values for the enhanced render),
+// while the one figure the manifest does not carry — the 1903 history horizon —
+// stays the report-cited constant of the base model. The grounded base model
+// remains the no-JS baseline; this is the progressive enhancement layered over
+// it once the manifest arrives.
 /** @param {HomeModel} base @param {HomeHoldings} holdings @returns {HomeModel} */
 export function enhanceHomeModel(base, holdings) {
   const heldStartYear = holdings.heldStartYear ?? base.span.heldStartYear;
   const latestYear = holdings.latestYear ?? base.span.latestYear;
   const latestLabel = humaniseIsoDate(holdings.latestDateIso) ?? base.span.latestLabel;
   // Project the "at a glance" readout from the SAME manifest the span dial reads,
-  // so the two can never disagree (issue #965). The callsign total is not carried
-  // by the manifest, so its cell is kept from the grounded base; the newest-
-  // snapshot cell falls back to the base cell honestly when the manifest carries
-  // no full date (never a stale-but-confident invented ISO).
+  // so the two can never disagree (issue #965). The callsign total comes from
+  // the manifest's newest register snapshot, and is kept from the grounded base
+  // only when the manifest names none; the newest-snapshot cell falls back to
+  // the base cell honestly when the manifest carries no full date (never a
+  // stale-but-confident invented ISO).
+  const register = holdings.latestRegister ?? null;
   const glance = base.glance.map((cell) => {
+    if (cell.k === 'callsigns' && register !== null) return { ...cell, v: register.records.toLocaleString('en-GB') };
     if (cell.k === 'publications') return { ...cell, v: String(holdings.count), u: `folded, ${heldStartYear}–${latestYear}` };
     if (cell.k === 'span held') return { ...cell, v: `${latestYear - heldStartYear}y`, u: `${heldStartYear} → ${latestYear}` };
     if (cell.k === 'latest snapshot') {
@@ -241,12 +256,18 @@ export function enhanceHomeModel(base, holdings) {
         ? cell
         : { ...cell, v: holdings.latestDateIso, u: humaniseIsoMonth(holdings.latestDateIso) ?? cell.u };
     }
-    return cell; // callsigns — not carried by the manifest, kept from the grounded base
+    return cell;
   });
+  // The pool's leading fact is the one about the newest register (see
+  // newestPublicationFact); the rest are not about any one publication.
+  const fromTheRecord = register === null
+    ? base.fromTheRecord
+    : [newestPublicationFact(register.vintage, register.records), ...base.fromTheRecord.slice(1)];
   return {
     ...base,
     facts: { date: latestLabel, count: holdings.count },
     glance,
+    fromTheRecord,
     rotationSeed: holdings.latestDateIso ?? base.rotationSeed,
     span: {
       ...base.span,
@@ -299,11 +320,24 @@ export function parseHoldings(raw) {
     });
   }
 
+  // Absent in a manifest built before the field existed (a cached copy from an
+  // earlier deploy): read as "none named". Present and wrong-shaped fails the
+  // whole parse, as every other field does.
+  /** @type {{ vintage: string, records: number } | null} */
+  let latestRegister = null;
+  if (o.latestRegister !== undefined && o.latestRegister !== null) {
+    if (typeof o.latestRegister !== 'object') return null;
+    const r = /** @type {Record<string, unknown>} */ (o.latestRegister);
+    if (typeof r.vintage !== 'string' || typeof r.records !== 'number' || !Number.isInteger(r.records) || r.records < 0) return null;
+    latestRegister = { vintage: r.vintage, records: r.records };
+  }
+
   return {
     count: o.count,
     heldStartYear: o.heldStartYear,
     latestYear: o.latestYear,
     latestDateIso: o.latestDateIso,
+    latestRegister,
     publications,
     milestones,
   };
@@ -947,5 +981,26 @@ export function renderHomeSections(root, model, order = HOME_SECTION_ORDER, regi
     section.setAttribute('data-section', id);
     entry.mount(section, model);
     root.appendChild(section);
+  }
+}
+
+// The sections whose content the holdings manifest changes. A section missing
+// from this list keeps showing the hand-authored default after the manifest has
+// loaded: on 2026-09-22 only "at a glance" was re-mounted, and the page went on
+// naming the previous publication two sections further down.
+export const MANIFEST_DERIVED_SECTIONS = ['at-a-glance', 'from-the-record'];
+
+/**
+ * Re-mount the manifest-derived sections of an already-rendered home page from
+ * a manifest-enhanced model. A section not present in `root` is skipped.
+ * @param {HTMLElement} root
+ * @param {HomeModel} model
+ */
+export function remountManifestSections(root, model) {
+  for (const id of MANIFEST_DERIVED_SECTIONS) {
+    const section = root.querySelector(`section[data-section="${id}"]`);
+    if (section === null) continue;
+    section.textContent = '';
+    HOME_SECTION_REGISTRY[id].mount(/** @type {HTMLElement} */ (section), model);
   }
 }
