@@ -830,11 +830,15 @@ export const WORKED_EXAMPLES: readonly WorkedExample[] = [
     title: 'A vintage disagreement, surfaced not resolved: G3SDS at 2000-01-01',
     query: { subject: 'G3SDS', t: '2000-01-01' },
     commentary: [
-      'G3SDS is issue #800’s mechanism-B exemplar: four version-scoped vintages',
-      'assert an original start of 1977-07-09, and the 2026-06-23 vintage asserts',
-      '2026-02-23 — a wholesale sole-row replacement. At t = 2000-01-01 the 1977',
-      'assertions support a start on or before t while the 2026 assertion does',
-      'not; the answer lists both camps by vintage and adjudicates neither.',
+      // Which vintages sit in each camp is printed from the data in the
+      // disagreements list below, so this prose names neither the vintages
+      // nor how many: a new publication can join a camp without making it false.
+      'G3SDS is issue #800’s mechanism-B exemplar: version-scoped vintages',
+      'assert an original start of 1977-07-09 until a later vintage asserts',
+      '2026-02-23 instead - a wholesale sole-row replacement. At t = 2000-01-01',
+      'the 1977 assertions support a start on or before t while the 2026',
+      'assertion does not; the answer lists both camps by vintage and',
+      'adjudicates neither.',
     ],
   },
   {

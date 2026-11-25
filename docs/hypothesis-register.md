@@ -439,6 +439,7 @@ annotations committed in
 
 A register row beginning `M2` reads at first like a data error, or like a
 missing reference-data entry. It is neither. Across every register copy held
+when this was verified (2026-07-29)
 — the nine open-data snapshots (`2022-05-30` → `2026-06-23`) and the 62
 committed FOI parse sources spanning 2016-09 → 2025-09 — exactly **one** `M2`
 callsign appears anywhere: **`M2IBX`**. It carries the status **`Reserved`**
@@ -708,7 +709,8 @@ not depend on it either way.
 and not part of the original note). Across the whole corpus the two strings
 are **not co-witnessed in any single export**:
 `Amateur Temporary Reciprocal Radio Licence` appears 1,620 times across 23
-sources, including 100 rows of the current `2026-06-23` publication, whereas
+sources, including 100 rows of the `2026-06-23` publication (the newest held
+when this was verified), whereas
 `Amateur Full (Reciprocal) Radio Licence` appears in **exactly one source** —
 15 rows of the 2016-09-29 disclosure's licence-class column — and in **no**
 publication since. Keeping the categories separate is therefore right, but

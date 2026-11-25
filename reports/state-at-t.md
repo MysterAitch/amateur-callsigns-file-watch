@@ -196,11 +196,12 @@ Evidence:
 
 ### A vintage disagreement, surfaced not resolved: G3SDS at 2000-01-01
 
-G3SDS is issue #800’s mechanism-B exemplar: four version-scoped vintages
-assert an original start of 1977-07-09, and the 2026-06-23 vintage asserts
-2026-02-23 — a wholesale sole-row replacement. At t = 2000-01-01 the 1977
-assertions support a start on or before t while the 2026 assertion does
-not; the answer lists both camps by vintage and adjudicates neither.
+G3SDS is issue #800’s mechanism-B exemplar: version-scoped vintages
+assert an original start of 1977-07-09 until a later vintage asserts
+2026-02-23 instead - a wholesale sole-row replacement. At t = 2000-01-01
+the 1977 assertions support a start on or before t while the 2026
+assertion does not; the answer lists both camps by vintage and
+adjudicates neither.
 
 Query: state of `G3SDS` at t = 2000-01-01, consulting the whole corpus.
 
