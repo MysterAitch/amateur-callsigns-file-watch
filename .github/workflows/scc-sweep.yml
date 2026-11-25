@@ -113,8 +113,10 @@ jobs:
           # of the same name would otherwise hold every refresh back for as
           # long as it stayed open. One left without an assignee was opened
           # by a run that stopped before assigning it, so it is assigned
-          # here; data-sweep.yml carries the incident behind that.
-          existing="$(gh pr list --state open --json url,headRefName,isCrossRepository,assignees \
+          # here; data-sweep.yml carries the incident behind that. The limit
+          # is explicit because a listing stops at 30 by default, and a
+          # refresh awaiting review is not among the newest.
+          existing="$(gh pr list --state open --limit 1000 --json url,headRefName,isCrossRepository,assignees \
             --jq 'map(select((.isCrossRepository | not) and (.headRefName | startswith("data/scc-")))) | .[0] // empty | [.url, (.assignees | length)] | @tsv')"
           if [ -n "$existing" ]; then
             pr_url="${existing%%$'\t'*}"
