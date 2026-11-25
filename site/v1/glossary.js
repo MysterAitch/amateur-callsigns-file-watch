@@ -173,7 +173,16 @@ export function wireTermPopovers(root) {
     });
     doc.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return;
-      for (const term of openTerms()) term.open = false;
+      for (const term of openTerms()) {
+        // Closing hides the definition; if focus was inside it (on its "full
+        // definition" link), the browser drops focus to the body and the next
+        // Tab restarts from the top of the page. Hand focus back to the term's
+        // own trigger first, so the reader stays where they were.
+        const active = doc.activeElement;
+        const summary = term.querySelector('summary');
+        if (active !== null && term.contains(active) && active !== summary && summary instanceof HTMLElement) summary.focus();
+        term.open = false;
+      }
     });
   }
 }
