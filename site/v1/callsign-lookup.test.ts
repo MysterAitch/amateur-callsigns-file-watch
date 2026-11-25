@@ -278,6 +278,26 @@ describe('Callsign page: a status from an older publication', { tags: ['ui'] }, 
     expect(modelFor(record, archive, 'G3UO').currency).toEqual({ asOf: '2016-09-20', newest: '2026-09-22', inNewest: true, statusFromNewest: false });
   });
 
+  it('FastAnswer_InTheNewestPoolListWithItsOwnLetter_SaysListedThereAndClaimsNothingAboutItsStatusThere', () => {
+    // An availability list marks its rows with a letter of its own (A), so the
+    // page must not say the newest publication carries no status for the callsign.
+    const archive = manifestOf([dataset(0, '2016-09-20', ['register-snapshot'], 'Amateur callsign database, 20 September 2016'), dataset(1, '2026-09-22', ['available-pool'])]);
+    const root = render({ h: 'OA', l: { d: 0, s: ['O'] } }, archive, 'G3UO');
+    const head = root.querySelector('section[data-section="fast-answer"]')?.textContent ?? '';
+    expect(head).toContain('Listed in the newest publication held, dated 2026-09-22.');
+    expect(head).not.toContain('carries no status');
+    expect(head).not.toContain('Not in the newest publication');
+    expect(root.querySelector('.status-row .led')).toBeNull();
+  });
+
+  it('CallsignModel_NewestPublicationIsAPoolListNotListingIt_ReadsAsNotInTheNewest', () => {
+    // "Newest publication held" is the newest dated publication of any kind - the
+    // same rule as the header's "Record as of" date - so a newer availability
+    // list that omits the callsign makes the register status a last-recorded one.
+    const archive = manifestOf([dataset(0, '2026-06-23', ['register-snapshot']), dataset(1, '2026-09-22', ['available-pool'])]);
+    expect(modelFor({ h: 'O.', l: { d: 0, s: ['O'] } }, archive, 'G3UO').currency).toEqual({ asOf: '2026-06-23', newest: '2026-09-22', inNewest: false, statusFromNewest: false });
+  });
+
   it('CallsignModel_StatusPublicationUndated_IsNeverTreatedAsTheNewest', () => {
     const archive = manifestOf([dataset(0, null, ['register-snapshot']), dataset(1, '2026-09-22', ['register-snapshot'])]);
     const record: CallsignRecord = { h: 'O.', l: { d: 0, s: ['O'] } };

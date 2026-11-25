@@ -309,7 +309,7 @@ export const V1_COPY = {
     currency: {
       recordedIn: 'Status as recorded in {publication}.',
       recordedInNewest: 'Status as recorded in {publication}, the newest publication held.',
-      listedInNewest: 'Listed in the newest publication held, dated {newest}, which carries no status for it.',
+      listedInNewest: 'Listed in the newest publication held, dated {newest}.',
       notInNewest: 'Not in the newest publication held, dated {newest}.',
       lastHeld: 'This is the last status this mirror holds, not a reading of the register today: absence from one publication is never evidence about the register.',
     },

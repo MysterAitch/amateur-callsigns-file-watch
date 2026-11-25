@@ -148,12 +148,15 @@ async function initCallsignPageV1() {
     // True when the typed form resolved only via its regional-rendering core —
     // the fast-answer note names it so the reader knows which record answered.
     let viaRendering = false;
+    // The shard that answered, for the status line: the core's shard when a
+    // regional rendering resolved through it.
+    let answeredFrom = shardName;
     if (record === null) {
       const core = canonicalCallsign(cleaned);
       if (core !== null && core !== cleaned) {
         const coreShardName = shardNameFor(core, shardNames);
         const coreShard = /** @type {{ callsigns: Record<string, import('../callsign.js').CallsignRecord> }} */ ((await fetchDataJson(`${coreShardName}.json`)).json);
-        if (Object.hasOwn(coreShard.callsigns, core)) { key = core; record = coreShard.callsigns[core]; viaRendering = true; }
+        if (Object.hasOwn(coreShard.callsigns, core)) { key = core; record = coreShard.callsigns[core]; viaRendering = true; answeredFrom = coreShardName; }
       }
     }
     const res = { key, record, cleaned, typed, viaRendering, input };
@@ -191,7 +194,7 @@ async function initCallsignPageV1() {
     wireTermPopovers(document);
     if (status !== null) {
       status.textContent = model.found
-        ? `Answered ${model.key} from one shard (${shardName}.json) – no database involved.`
+        ? `Answered ${model.key} from one shard (${answeredFrom}.json) – no database involved.`
         : `No record found for ${boundedQuery(cleaned).text} – checked shard ${shardName}.json.`;
     }
   } catch (err) {
