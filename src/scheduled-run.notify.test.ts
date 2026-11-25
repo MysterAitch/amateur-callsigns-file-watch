@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { lxcServiceCommand, summariseGitError } from './scheduled-run.ts';
+import {
+  composeHeldReminder,
+  decideHeldReminder,
+  lxcServiceCommand,
+  summariseGitError,
+} from './scheduled-run.ts';
 
 // Test names follow Subject_Scenario_Outcome per project convention.
 //
@@ -61,5 +66,114 @@ describe('summariseGitError', { tags: ['unit'] }, () => {
   it('SummariseGitError_WhenEmpty_ReturnsPlaceholder', () => {
     expect(summariseGitError('')).toBe('(no error message)');
     expect(summariseGitError('   \n  \n')).toBe('(no error message)');
+  });
+});
+
+// The reminder for a publication that has not reached main. Every scenario
+// names its own clock, so the expected outcome is decided before the call.
+describe('decideHeldReminder', { tags: ['unit'] }, () => {
+  const authoredAt = new Date('2026-09-22T16:00:00Z');
+  const held = { count: 1, oldestSubject: 'Update amateur callsigns CSV', oldestAuthoredAt: authoredAt };
+  const hoursAfter = (hours: number): Date => new Date(authoredAt.getTime() + hours * 3_600_000);
+
+  it('HeldReminder_WhenNothingIsHeld_StaysSilent', () => {
+    expect(decideHeldReminder({ count: 0 }, undefined, hoursAfter(500)).notify).toBe(false);
+  });
+
+  it('HeldReminder_WhenDetectionDidNotApply_StaysSilent', () => {
+    expect(decideHeldReminder(null, undefined, hoursAfter(500)).notify).toBe(false);
+  });
+
+  it('HeldReminder_WhenHeldLessThanADay_StaysSilent', () => {
+    // The landing itself was announced; a pull request that merges within the
+    // day needs no second message.
+    expect(decideHeldReminder(held, undefined, hoursAfter(23.9)).notify).toBe(false);
+  });
+
+  it('HeldReminder_WhenHeldExactlyADay_RemindsAtDefaultPriority', () => {
+    expect(decideHeldReminder(held, undefined, hoursAfter(24))).toMatchObject({
+      notify: true,
+      priority: 'default',
+    });
+  });
+
+  it('HeldReminder_WhenHeldJustUnderThreeDays_IsStillDefaultPriority', () => {
+    expect(decideHeldReminder(held, undefined, hoursAfter(71.9))).toMatchObject({
+      notify: true,
+      priority: 'default',
+    });
+  });
+
+  it('HeldReminder_WhenHeldThreeDays_EscalatesToHighPriority', () => {
+    expect(decideHeldReminder(held, undefined, hoursAfter(72))).toMatchObject({
+      notify: true,
+      priority: 'high',
+    });
+  });
+
+  it('HeldReminder_WhenRemindedLessThanADayAgo_StaysSilent', () => {
+    const lastReminded = hoursAfter(24).toISOString();
+
+    expect(decideHeldReminder(held, lastReminded, hoursAfter(47.9)).notify).toBe(false);
+  });
+
+  it('HeldReminder_WhenRemindedADayAgo_RemindsAgain', () => {
+    const lastReminded = hoursAfter(24).toISOString();
+
+    expect(decideHeldReminder(held, lastReminded, hoursAfter(48)).notify).toBe(true);
+  });
+
+  it('HeldReminder_WhenHeldForTwoMonths_IsStillRemindingAtHighPriority', () => {
+    // 22 September to 24 November 2026: the wait this reminder exists for.
+    const lastReminded = hoursAfter(63 * 24 - 24).toISOString();
+
+    expect(decideHeldReminder(held, lastReminded, hoursAfter(63 * 24))).toMatchObject({
+      notify: true,
+      priority: 'high',
+    });
+  });
+
+  it('HeldReminder_WhenTheStoredReminderTimeIsUnreadable_RemindsRatherThanStaySilent', () => {
+    expect(decideHeldReminder(held, 'not a timestamp', hoursAfter(30)).notify).toBe(true);
+  });
+
+  it('HeldReminder_WhenTheHostClockIsBehindTheCommit_StaysSilent', () => {
+    expect(decideHeldReminder(held, undefined, hoursAfter(-5)).notify).toBe(false);
+  });
+});
+
+describe('composeHeldReminder', { tags: ['unit'] }, () => {
+  const authoredAt = new Date('2026-09-22T16:00:00Z');
+  const hoursAfter = (hours: number): Date => new Date(authoredAt.getTime() + hours * 3_600_000);
+
+  it('HeldReminderMessage_WhenOnePublicationHeldThreeDays_NamesItAndTheWait', () => {
+    const message = composeHeldReminder(
+      { count: 1, oldestSubject: 'Update amateur callsigns CSV (Ofcom updated: 2026-09-22)', oldestAuthoredAt: authoredAt },
+      hoursAfter(75),
+    );
+
+    expect(message.title).toBe('Ofcom publication not on main after 3 days');
+    expect(message.body).toContain('"Update amateur callsigns CSV (Ofcom updated: 2026-09-22)"');
+    expect(message.body).toContain('3 days 3 hours');
+  });
+
+  it('HeldReminderMessage_WhenHeldJustOverOneDay_UsesTheSingular', () => {
+    const message = composeHeldReminder(
+      { count: 1, oldestSubject: 'a publication', oldestAuthoredAt: authoredAt },
+      hoursAfter(25),
+    );
+
+    expect(message.title).toBe('Ofcom publication not on main after 1 day');
+    expect(message.body).toContain('1 day 1 hour');
+  });
+
+  it('HeldReminderMessage_WhenSeveralAreHeld_SaysHowManyAndNamesTheOldest', () => {
+    const message = composeHeldReminder(
+      { count: 3, oldestSubject: 'the oldest publication', oldestAuthoredAt: authoredAt },
+      hoursAfter(240),
+    );
+
+    expect(message.title).toBe('3 Ofcom publications not on main, the oldest after 10 days');
+    expect(message.body).toContain('"the oldest publication"');
   });
 });

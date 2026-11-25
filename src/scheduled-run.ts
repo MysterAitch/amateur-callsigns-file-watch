@@ -105,6 +105,10 @@ interface NotifyState {
   lastGitFailureNotifiedAt?: string;
   lastGitFailureFingerprint?: string;
   lastGitFailureMessage?: string;
+
+  // When the held-publication reminder last fired. Cleared once nothing is
+  // held, so the next publication's first reminder is not delayed by this one.
+  lastHeldPublicationRemindedAt?: string;
 }
 
 async function loadState(): Promise<NotifyState> {
@@ -660,6 +664,138 @@ export function gitCommitAndPush(message: string, archiveKey: string): GitResult
 }
 
 //
+// Held publications - a reminder that repeats until the data reaches main.
+//
+// The 22 September 2026 publication was fetched, pushed, and announced on the
+// day, then sat in an unmerged pull request until 24 November: the landing
+// notification fires once, and nothing after it said the data was still not
+// live. This is the backstop for that. It asks one question - has every commit
+// this host made reached origin's main? - which the host can answer from git
+// alone, with no GitHub API access and whatever the reason for the hold.
+//
+
+// Hours a publication may wait before the first reminder, the wait at which
+// reminders become HIGH, and the gap between reminders. Strict on purpose:
+// loosen them on evidence that reminders arrive for pull requests that were
+// about to merge anyway.
+const HELD_FIRST_REMINDER_HOURS = 24;
+const HELD_HIGH_PRIORITY_HOURS = 72;
+const HELD_REMINDER_INTERVAL_HOURS = 24;
+
+interface NothingHeld {
+  count: 0;
+}
+
+interface SomethingHeld {
+  count: number;
+  oldestSubject: string;
+  oldestAuthoredAt: Date;
+}
+
+export type HeldPublications = NothingHeld | SomethingHeld;
+
+function isSomethingHeld(held: HeldPublications): held is SomethingHeld {
+  return held.count > 0;
+}
+
+// Commits on the local branch that its upstream does not have. The age comes
+// from the AUTHOR date: the pre-push rebase rewrites the committer date every
+// time main moves, and the author date is when the publication was fetched.
+// Returns null where the question cannot be asked (no git checkout, or no
+// upstream configured).
+export function detectHeldPublications(): HeldPublications | null {
+  let log: string;
+  try {
+    log = execFileSync('git', ['log', '--format=%aI%x09%s', '@{upstream}..HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return null;
+  }
+  if (log.length === 0) return { count: 0 };
+
+  const commits = log.split('\n').map((line) => {
+    const tab = line.indexOf('\t');
+    return { authoredAt: new Date(line.slice(0, tab)), subject: line.slice(tab + 1) };
+  });
+  const oldest = commits.reduce((a, b) => (b.authoredAt.getTime() < a.authoredAt.getTime() ? b : a));
+  return { count: commits.length, oldestSubject: oldest.subject, oldestAuthoredAt: oldest.authoredAt };
+}
+
+type HeldReminderDecision =
+  | { notify: false; reason: string }
+  | { notify: true; priority: NtfyPriority; reason: string };
+
+export function decideHeldReminder(
+  held: HeldPublications | null,
+  lastRemindedAt: string | undefined,
+  now: Date,
+): HeldReminderDecision {
+  if (held === null) return { notify: false, reason: 'held-publication check does not apply here' };
+  if (!isSomethingHeld(held)) return { notify: false, reason: 'nothing held' };
+
+  const heldHours = (now.getTime() - held.oldestAuthoredAt.getTime()) / 3_600_000;
+  if (heldHours < HELD_FIRST_REMINDER_HOURS) {
+    return { notify: false, reason: `held ${heldHours.toFixed(1)}h (< ${HELD_FIRST_REMINDER_HOURS}h)` };
+  }
+
+  // An unreadable stored time gives NaN, which fails the comparison and so
+  // reminds: silence is the failure this exists to prevent.
+  const sinceLastHours = lastRemindedAt === undefined
+    ? Number.NaN
+    : (now.getTime() - new Date(lastRemindedAt).getTime()) / 3_600_000;
+  if (sinceLastHours < HELD_REMINDER_INTERVAL_HOURS) {
+    return { notify: false, reason: `reminded ${sinceLastHours.toFixed(1)}h ago (< ${HELD_REMINDER_INTERVAL_HOURS}h)` };
+  }
+
+  return {
+    notify: true,
+    priority: heldHours >= HELD_HIGH_PRIORITY_HOURS ? 'high' : 'default',
+    reason: `held ${heldHours.toFixed(1)}h`,
+  };
+}
+
+function plural(n: number, unit: string): string {
+  return `${n} ${unit}${n === 1 ? '' : 's'}`;
+}
+
+export function composeHeldReminder(held: SomethingHeld, now: Date): { title: string; body: string } {
+  const totalHours = Math.floor((now.getTime() - held.oldestAuthoredAt.getTime()) / 3_600_000);
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  const wait = hours === 0 ? plural(days, 'day') : `${plural(days, 'day')} ${plural(hours, 'hour')}`;
+
+  const title = held.count === 1
+    ? `Ofcom publication not on main after ${plural(days, 'day')}`
+    : `${held.count} Ofcom publications not on main, the oldest after ${plural(days, 'day')}`;
+  const lines = [
+    `"${held.oldestSubject}" was fetched ${wait} ago and has not reached main, so the site does not show it.`,
+    'Look at its data pull request: its checks may be failing, or auto-merge may never have been enabled.',
+  ];
+  if (held.count > 1) lines.push(`${held.count} publications are waiting; that one is the oldest.`);
+  lines.push(`This repeats every ${HELD_REMINDER_INTERVAL_HOURS} hours until the host's commits are on main.`);
+  return { title, body: lines.join('\n') };
+}
+
+async function handleHeldPublications(state: NotifyState, held: HeldPublications | null, now: Date): Promise<void> {
+  if (held !== null && !isSomethingHeld(held) && state.lastHeldPublicationRemindedAt) {
+    logger.info('held publication reached main; clearing reminder state.');
+    state.lastHeldPublicationRemindedAt = undefined;
+  }
+
+  const decision = decideHeldReminder(held, state.lastHeldPublicationRemindedAt, now);
+  if (!decision.notify || held === null || !isSomethingHeld(held)) {
+    logger.debug(`held publications: ${decision.reason}`);
+    return;
+  }
+
+  const message = composeHeldReminder(held, now);
+  await ntfy(decision.priority, message.title, message.body);
+  state.lastHeldPublicationRemindedAt = now.toISOString();
+}
+
+//
 // Failure handling and escalation
 //
 
@@ -841,6 +977,15 @@ async function main(): Promise<void> {
     await handleDrift(state, detectWorkingTreeDrift(), 'working-tree');
   } catch (err) {
     logger.warn(`drift check failed (${errorMessage(err)}); continuing.`);
+  }
+
+  // Every tick, and after the pull, so the comparison is with origin's main
+  // as just fetched. A publication made later in this same tick is far below
+  // the first-reminder threshold, so checking before the fetch loses nothing.
+  try {
+    await handleHeldPublications(state, detectHeldPublications(), now);
+  } catch (err) {
+    logger.warn(`held-publication check failed (${errorMessage(err)}); continuing.`);
   }
 
   if (decision.action === 'skip') {
