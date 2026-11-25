@@ -16,6 +16,8 @@ import {
   RULE_GLOSSES,
   CAVEAT_GLOSSES,
   EMPTY_STATE_CONTEXT,
+  STATE_AT_T_PATH,
+  WORKED_EXAMPLES,
   type SubjectEventRow,
   type StateContext,
   type StateAtTReport,
@@ -632,5 +634,19 @@ describe('state-at-t rendering', { tags: ['unit'] }, () => {
     expect(md).toContain('- Episode 1: 2016-07-23 → 2016-08-12');
     expect(md).toContain('### Example');
     expect(md).toContain('**licence-start-on-or-before-t**');
+  });
+});
+
+// The commentary is authored prose emitted verbatim, so the committed report
+// can be checked against it without the corpus fold the full regeneration
+// needs - an edit to one without the other fails here rather than only in the
+// golden-master drift job.
+describe('state-at-t committed report', { tags: ['unit'] }, () => {
+  it('CommittedReport_ForEveryWorkedExample_CarriesItsCommentaryVerbatim', () => {
+    const committed = fs.readFileSync(path.resolve(process.cwd(), STATE_AT_T_PATH), 'utf8');
+    expect(WORKED_EXAMPLES.length).toBeGreaterThan(0);
+    for (const example of WORKED_EXAMPLES) {
+      expect(committed, example.title).toContain(`### ${example.title}\n\n${example.commentary.join('\n')}\n\n`);
+    }
   });
 });

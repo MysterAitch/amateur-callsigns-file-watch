@@ -10,11 +10,13 @@
 // re-mounts the sections whose content it changes: "the record at a glance",
 // with the real per-publication marks and the cited register-history
 // milestones, and "from the record", whose leading fact names the newest
-// register. On any failure the grounded baseline simply stands.
+// register. Until then, and for good if the manifest cannot be read, those two
+// sections stay as the deploy stamped them from the same manifest
+// (renderHomeOverBaseline), so a failed fetch never shows hand-written figures.
 
 import { renderSiteBar, renderBreadcrumb, renderFooter, mountInto } from './shell.js';
 import { V1_COPY } from './copy.js';
-import { renderHomeSections, defaultHomeModel, enhanceHomeModel, parseHoldings, remountManifestSections } from './home-sections.js';
+import { renderHomeOverBaseline, defaultHomeModel, enhanceHomeModel, parseHoldings, remountManifestSections } from './home-sections.js';
 
 /** @param {HTMLElement} root */
 async function enhanceFromHoldings(root) {
@@ -24,12 +26,12 @@ async function enhanceFromHoldings(root) {
     const text = await res.text();
     const parsed = /** @type {unknown} */ (JSON.parse(text));
     // Validate the untrusted manifest shape before use; a wrong-shaped manifest
-    // degrades to the grounded baseline rather than mis-rendering.
+    // leaves the page as served rather than mis-rendering.
     const holdings = parseHoldings(parsed);
     if (holdings === null) return;
     remountManifestSections(root, enhanceHomeModel(defaultHomeModel(), holdings));
   } catch {
-    // The grounded no-JS baseline stands; the marks are a bonus, not load-bearing.
+    // The stamped sections stand; the marks are a bonus, not load-bearing.
   }
 }
 
@@ -40,8 +42,7 @@ if (typeof document !== 'undefined' && document.querySelector('main[data-page="h
   mountInto('sitefooter', renderFooter());
   const root = document.getElementById('sections');
   if (root !== null) {
-    root.textContent = '';
-    renderHomeSections(/** @type {HTMLElement} */ (root), model);
+    renderHomeOverBaseline(/** @type {HTMLElement} */ (root), model);
     void enhanceFromHoldings(/** @type {HTMLElement} */ (root));
   }
 }

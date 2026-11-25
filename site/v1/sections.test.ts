@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { parse as parseCsv } from 'csv-parse/sync';
+import { listArchiveKeys } from '../../src/shared/archive.ts';
 import {
   HOME_SECTION_ORDER,
   HOME_SECTION_REGISTRY,
@@ -14,6 +17,7 @@ import {
   fractionalYearOf,
   milestoneRotationStart,
   humaniseIsoDate,
+  renderHomeOverBaseline,
 } from './home-sections.js';
 import {
   CALLSIGN_SECTION_ORDER,
@@ -373,11 +377,10 @@ describe('v1 home sections', { tags: ['ui'] }, () => {
   });
 });
 
-// The hand-maintained-duplicate structural-fragility class this repo hunts: the
-// static no-JS baseline in index.html carries an independent copy of every home
-// figure. This parity guard renders the model and parses the committed static
-// markup, asserting the two agree — so a future edit to the centralised figures
-// cannot silently split the JS and static renders.
+// The committed index.html carries, between its stamp markers, the deploy
+// stamp's render of the script's defaults (src/ci/build-v1-home-static.ts).
+// This guard renders the model and parses the committed markup, asserting the
+// two agree, so an edit to the defaults without a re-render shows here.
 function extractGlanceFigures(scope: ParentNode) {
   const glance = scope.querySelector('section[data-section="at-a-glance"]');
   if (glance === null) throw new Error('at-a-glance section not found');
@@ -399,10 +402,121 @@ function extractGlanceFigures(scope: ParentNode) {
     foot: [...(dial?.querySelectorAll('.sd-foot span') ?? [])].map(s => norm(s.textContent)),
     // The honest no-JS note: the baseline states plainly that the individual
     // marks appear with the script, so the static render can never imply marks
-    // it does not draw. Parity holds it identical to the grounded render.
+    // it does not draw. Parity holds it identical to the default render.
     note: norm(dial?.querySelector('.sd-note')?.textContent),
   };
 }
+
+// The deploy stamps the manifest-derived sections into the served page from the
+// newest manifest. The script must not replace them with its hand-written
+// defaults while the manifest is loading, nor leave those defaults standing if
+// the manifest never arrives.
+describe('v1 home script over the stamped baseline', { tags: ['ui'] }, () => {
+  function stampedRoot(): HTMLElement {
+    // A stamped page as served: the at-a-glance and from-the-record sections
+    // state an invented 2027 register of 4,323 records.
+    const holdings = holdingsFixture();
+    holdings.latestDateIso = '2027-03-16';
+    holdings.latestYear = 2027;
+    holdings.latestRegister = { vintage: '2027-03-16', records: 4323 };
+    const model = enhanceHomeModel(defaultHomeModel(), { ...holdings, publications: [], milestones: [] });
+    const root = document.createElement('div');
+    renderHomeSections(root, model);
+    return root;
+  }
+  const cell = (root: ParentNode, k: string): string | null | undefined =>
+    [...root.querySelectorAll('.readout .cell')].find(c => c.querySelector('.k')?.textContent === k)?.querySelector('.v')?.textContent;
+
+  it('HomeScript_BeforeTheManifestArrives_KeepsTheStampedFiguresRatherThanItsDefaults', () => {
+    const root = stampedRoot();
+    renderHomeOverBaseline(root, defaultHomeModel());
+    expect(cell(root, 'callsigns')).toBe('4,323');
+    expect(cell(root, 'latest snapshot')).toBe('2027-03-16');
+    expect(root.textContent).not.toContain('158,318');
+    expect([...root.querySelectorAll('section[data-section]')].map(s => s.getAttribute('data-section'))).toEqual([...HOME_SECTION_ORDER]);
+  });
+
+  it('HomeScript_OverAPageWithNoStampedSections_RendersItsDefaults', () => {
+    const root = document.createElement('div');
+    renderHomeOverBaseline(root, defaultHomeModel());
+    expect(cell(root, 'callsigns')).toBe('158,318');
+    expect([...root.querySelectorAll('section[data-section]')].map(s => s.getAttribute('data-section'))).toEqual([...HOME_SECTION_ORDER]);
+  });
+
+  it('HomeScript_WhenTheManifestThenArrives_RedrawsTheKeptSectionsWithTheMarks', () => {
+    const root = stampedRoot();
+    renderHomeOverBaseline(root, defaultHomeModel());
+    remountManifestSections(root, enhanceHomeModel(defaultHomeModel(), holdingsFixture()));
+    expect(root.querySelectorAll('.sd-pip').length).toBeGreaterThan(0);
+    expect(root.querySelectorAll('section[data-section="at-a-glance"]')).toHaveLength(1);
+  });
+});
+
+// Two home facts are hand-written and no manifest carries them: the 1903
+// history horizon and "M2 - reserved-only". The horizon is pinned to the
+// committed report that backs it, which the report sweep regenerates after a
+// publication lands; the M2 fact to the archived registers themselves (below).
+// Either fails here when the data stops agreeing rather than quietly going
+// false on the page.
+describe('v1 home hand-written facts pinned to their reports', { tags: ['unit'] }, () => {
+  const sequenceAnalytics = (): string => fs.readFileSync('reports/sequence-analytics.md', 'utf8');
+  it('HomeHistoryHorizon_IsTheEarliestDatedAllocationTheReportsRecord', () => {
+    const years = [...sequenceAnalytics().matchAll(/Dated allocations (\d{4})-\d{2}-\d{2} →/g)].map(m => Number(m[1]));
+    expect(assertNonEmpty(years, 'dated-allocation ranges in reports/sequence-analytics.md').length).toBeGreaterThan(0);
+    expect(defaultHomeModel().span.historyStartYear).toBe(Math.min(...years));
+  });
+
+  it('M2StatusReader_GivenARegisterFileWithAnAllocatedM2Row_ReportsThatStatus', () => {
+    // The reader the archive pin below uses, on constructed files in the
+    // header shapes the archive holds (first column "Value", "Value__c" or
+    // "Callsign"; "Status" or "Status__c" wherever it falls; a byte-order mark
+    // on the header).
+    const older = 'Value,Status,Type\r\nM0ABC,Allocated,Call Sign - Amateur\r\nM2IBX,Reserved,Call Sign - Amateur\r\n';
+    const newer = BYTE_ORDER_MARK_CHAR + 'Callsign,Product__c,Status,Type__c\nM2XYZ,Amateur Foundation Licence,Allocated,Call Sign - Amateur\n"M2,Q",,Reserved,x\n';
+    expect(m2Statuses(older)).toEqual([['M2IBX', 'Reserved']]);
+    expect(m2Statuses(newer)).toEqual([['M2XYZ', 'Allocated'], ['M2,Q', 'Reserved']]);
+    expect(m2Statuses('Value__c,Product__c,Status__c\nM2ABC,,Allocated\n')).toEqual([['M2ABC', 'Allocated']]);
+  });
+});
+
+// Built from its code point rather than written literally: the character is
+// invisible in source, so a literal one cannot be seen or reviewed.
+const BYTE_ORDER_MARK_CHAR = String.fromCharCode(0xfeff);
+const BYTE_ORDER_MARK = new RegExp(`^${BYTE_ORDER_MARK_CHAR}`);
+
+// The rows each register file holds for the M2 block, as [callsign, status].
+function m2Statuses(csv: string): [string, string][] {
+  const lines = csv.split(/\r?\n/);
+  const header: string[][] = parseCsv((lines[0] ?? '').replace(BYTE_ORDER_MARK, ''));
+  const statusAt = (header[0] ?? []).findIndex(h => /^status(__c)?$/i.test(h.trim()));
+  if (statusAt === -1) throw new Error(`no Status column in header: ${lines[0] ?? ''}`);
+  const m2Lines = lines.slice(1).filter(l => /^"?M2/i.test(l));
+  if (m2Lines.length === 0) return [];
+  const rows: string[][] = parseCsv(m2Lines.join('\n'), { relax_column_count: true });
+  return rows.map(r => [r[0] ?? '', r[statusAt] ?? '']);
+}
+
+// "M2 – reserved-only across the publications held" is about the register
+// snapshots' own status column, so the pin reads that column in every archived
+// register file. Measured 2026-11-25: one M2 callsign (M2IBX), "Reserved" in
+// every snapshot that carries it. The first M2 row with any other status fails
+// this, and the fact must then be rewritten or dropped from the pool. Scope:
+// the open-data register snapshots under archive/<date>/; FOI disclosures are
+// not read.
+describe('v1 home M2 fact against the archived registers', { tags: ['data-validity'] }, () => {
+  it('HomeM2ReservedOnlyFact_EveryM2RowInEveryArchivedRegister_IsReserved', () => {
+    expect(defaultHomeModel().fromTheRecord.some(f => f.headline.startsWith('M2')), 'the M2 fact is still in the pool').toBe(true);
+    const found: string[] = [];
+    for (const key of listArchiveKeys()) {
+      const dir = path.join('archive', key);
+      for (const file of fs.readdirSync(dir).filter(f => /^raw.*\.csv$/.test(f))) {
+        for (const [callsign, status] of m2Statuses(fs.readFileSync(path.join(dir, file), 'utf8'))) found.push(`${key}/${file}: ${callsign} ${status}`);
+      }
+    }
+    assertNonEmpty(found, 'M2 rows across the archived registers');
+    expect(found.filter(f => !f.endsWith(' Reserved'))).toEqual([]);
+  });
+});
 
 describe('v1 home static/JS parity', { tags: ['unit'] }, () => {
   it('StaticBaseline_AtAGlanceFigures_MatchTheModelRenderedFigures', () => {

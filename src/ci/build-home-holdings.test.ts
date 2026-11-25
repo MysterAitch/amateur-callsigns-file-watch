@@ -174,6 +174,26 @@ describe('home holdings — assembly', { tags: ['unit'] }, () => {
     expect(homeHoldings(datasets, PREFIX_ROWS).latestRegister).toEqual({ vintage: '2027-03-05', records: 4323 });
   });
 
+  // The home page showed 163,342 callsigns for the 2026-09-22 register and,
+  // in the same panel, "163,341 rows" on that register's dial mark: the mark
+  // counted only the rows the lookup could key. Every count of a publication's
+  // rows elsewhere on the site (its dataset page, the statistics page, the
+  // previous home page's holdings map) counts every row in the file.
+  it('HoldingsPublications_APublicationWithUnkeyableRows_CountsEveryRowInTheFile', () => {
+    const datasets: ManifestDataset[] = [
+      { lane: 'foi', vintage: '2020-04-23', title: 'a disclosure with unkeyable rows', classes: ['available-pool'], rows: 2037, unkeyable: 12 },
+      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 4321, unkeyable: 2 },
+      { lane: 'open-data', vintage: '2019-01-14', title: 'no unkeyable field', classes: ['register-snapshot'], rows: 130000 },
+    ];
+
+    const h = homeHoldings(datasets, PREFIX_ROWS);
+
+    // 2,037 + 12 = 2,049; 4,321 + 2 = 4,323; an entry without the field keeps its rows.
+    expect(h.publications.map(p => [p.vintage, p.rows])).toEqual([['2019-01-14', 130000], ['2020-04-23', 2049], ['2027-03-05', 4323]]);
+    const newest = h.publications.find(p => p.latest);
+    expect(newest?.rows, 'the ringed mark and the callsign total count the same file').toBe(h.latestRegister?.records);
+  });
+
   it('HomeHoldings_NewestPublicationIsNotARegister_StillReportsTheNewestRegister', () => {
     const datasets: ManifestDataset[] = [
       ...DATASETS,

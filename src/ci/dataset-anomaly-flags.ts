@@ -50,8 +50,8 @@
  * Allocated / -3,950 Reserved over about nine weeks. This module's own test
  * suite checks that pair is flagged, with the correct metric and magnitude —
  * the record-count signal fires cleanly for it. The per-status SHARE signal
- * does not independently fire for this particular pair against the current
- * (very small, ~9-dataset) held corpus: one neighbour in the same window
+ * did not independently fire for this particular pair against the held corpus
+ * as calibrated on 2026-07-17 (very small, ~9 datasets): one neighbour in the same window
  * (2025-06-04) is itself a severe outlier (a filtered export, flagged
  * separately below), and with only 3-4 declared-complete neighbours on a
  * side its single presence inflates the share metric's MAD enough to blunt
