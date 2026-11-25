@@ -4,7 +4,7 @@
 first surprise to a labelled, testable hypothesis. It is a story about
 record-keeping mechanics, not about the people who hold these callsigns.*
 
-> **Read this as an account of the register as it stood at 23 June 2026.** Its
+> **Read this as an account of the publications held at 23 June 2026.** Its
 > counts and statuses are those of the snapshots named beside them, none later
 > than [2026-06-23](../../archive/2026-06-23/raw.csv). A later publication,
 > [2026-09-22](../../archive/2026-09-22/raw.csv), holds the same six pairs with
@@ -14,7 +14,7 @@ record-keeping mechanics, not about the people who hold these callsigns.*
 Every claim below carries one of three tags — **[observed]**, **[derived]**,
 or **[hypothesis]** — so you can tell at a glance what kind of statement it is
 and check it yourself. Select any tag to see its full definition in the
-[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#epistemics).
 
 The numbers here were re-checked against the archived data before publication.
 Where a count appears, the file and the rule that produces it are given, so the
@@ -72,7 +72,7 @@ So `G6 FMU`, `G6FMU`, and a `G6FMU` followed by an invisible non-breaking space
 all clean to the single key `G6FMU`. A **cleaned-key twin** is what you get when
 two *different* raw tokens in the same snapshot clean to the *same* key: one
 underlying callsign, written two ways, appearing as two rows. (See the glossary
-entry for [Cleaned](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#cleaned).)
+entry for [Cleaned](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#cleaned).)
 
 ---
 
@@ -109,7 +109,7 @@ are invisible:
 - `G7IWE` and `G0TQK` — a trailing **non-breaking space** (`U+00A0`), which
   looks exactly like a normal space but is a distinct character. The mirror has a
   whole explainer on why these matter:
-  [invisible characters](https://mysteraitch.github.io/amateur-callsigns-file-watch/invisible-characters.html).
+  [invisible characters](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/invisible-characters.html).
 - `M/#PT2FM`, `M/#VK4VGK` — a `#` (`U+0023`), the reciprocal/visitor placeholder
   notation, sitting mid-token.
 - `M/EI-8-DJ` — stray **hyphens** (`U+002D`).
@@ -177,8 +177,8 @@ snapshot, not assumed to hold.
 
 **[observed]** A caution on dates: in the 23 June 2026 snapshot the modification date
 is populated for **exactly the 105,332 `Allocated` rows and no others** — every
-`Reserved` and `Available` row is undated by design. So an undated pool twin is a
-characteristic of the schema, **not** evidence that the row is stale. And the
+`Reserved` and `Available` row in that snapshot is undated. So an undated pool twin is a
+characteristic of how that export is populated, **not** evidence that the row is stale. And the
 30 May 2022 snapshot carries **no** modification dates at all (zero of 151,152
 rows), a whole-snapshot gap. Absence of a date is not absence of currency.
 
@@ -285,20 +285,43 @@ grouping rule as written counts those too (216 and 197 groups). They are one
 token listed more than once, not twins: a twin is two *different* tokens that
 clean to one key. Neither 2026-06-23 nor 2026-09-22 repeats any raw callsign.
 
-**[observed]** Two cautions from above read differently against September.
+**[observed]** The persistence table's "6 (12 rows)" for 2022-05-30 and
+2023-02-20 also leaves a group out without saying so. Rows whose callsign
+field is empty, or holds no letter or digit, all clean to the empty key, so
+the rule as written reports a seventh group in each of those two vintages:
+five such rows in 2022-05-30 and three in 2023-02-20. The table's counts are
+of groups with a non-empty key, and so is every count in this section.
 
-- **The odd characters.** In `archive/2026-09-22/raw.csv` the non-breaking
-  space after `G7IWE` and `G0TQK` is the single byte `A0`, and the file has no
-  byte-order mark; 2026-06-23 carries the same character as the two-byte
-  UTF-8 sequence `C2 A0`. Read as UTF-8, the September byte comes out as a
-  replacement character, not as `U+00A0`. The cleaning rule drops it either
-  way, so the grouping is unaffected, but confirming *which* character it is
-  means reading the bytes.
-- **The dates.** The "exactly the `Allocated` rows and no others" pattern is
-  particular to 2026-06-23. In 2026-09-22 the licence-version modification
-  date is present on 105,314 of 105,315 `Allocated` rows and on 6 of 57,420
-  `Reserved` rows, and on none of the 592 `Available` rows or the 15 rows
-  with no status.
+**[observed]** Two cautions from above read differently against September.
+The first is the odd characters. In `archive/2026-09-22/raw.csv` the
+non-breaking space after `G7IWE` and `G0TQK` is the single byte `A0`, and the
+file has no byte-order mark; 2026-06-23 carries the same character as the
+two-byte UTF-8 sequence `C2 A0`. Read as UTF-8, the September byte comes out
+as a replacement character, not as `U+00A0`. The cleaning rule drops it
+either way, so the grouping is unaffected, but confirming *which* character
+it is means reading the bytes.
+
+**[observed]** The second is the dates. The "exactly the `Allocated` rows and
+no others" pattern holds in all three earlier vintages that carry the
+licence-version modification date, and first breaks in 2026-09-22:
+
+| vintage | `Allocated` rows dated | other rows dated |
+|---|---:|---:|
+| 2025-11-11 | 105,716 of 105,716 | 0 of 54,179 |
+| 2026-01-14 | 96,155 of 96,155 | 0 of 50,262 |
+| 2026-06-23 | 105,332 of 105,332 | 0 of 52,986 |
+| 2026-09-22 | 105,314 of 105,315 | 6 of 58,027 |
+
+The six dated rows in 2026-09-22 are all `Reserved` (6 of 57,420); none of
+its 592 `Available` rows or its 15 rows with no status carries the date. So
+"every `Reserved` and `Available` row is undated" is true of the three
+earlier vintages and not of September, and nothing held here says whether it
+was ever intended. To re-run a row of the table (column 7 of
+`normalised.csv`; for 2026-09-22, column 5 of `raw.csv`):
+
+```
+awk -F, 'NR > 1 { n[$3]++; if ($7 != "") d[$3]++ } END { for (s in n) print s, d[s] + 0, "of", n[s] }' archive/2025-11-11/normalised.csv
+```
 
 **[derived]** Eight pairs across 163,342 rows leaves the conclusion below
 where it was: twin rows are the rare exception. What September changes is the
@@ -337,12 +360,12 @@ splitting on commas is safe for it; `latin1` is what turns the byte `A0` into
 - The per-callsign page marks a dataset where a cleaned form's statuses disagree
   and shows the note *"listed more than once — statuses disagree … both are kept;
   neither is picked as the winner."* Each raw row is shown verbatim.
-- The [Ledger](https://mysteraitch.github.io/amateur-callsigns-file-watch/ledger.html?c=G6FMU)
+- The [Ledger](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/ledger.html?c=G6FMU)
   raises its own `co-temporal-status-divergence` flag for the same effect — *"the
   raw variants disagree on status. The register shows both."*
 - The reasoning behind keeping both, and how the mirror records this kind of
   within-snapshot conflict, is set out on the
-  [fidelity deep-dive](https://mysteraitch.github.io/amateur-callsigns-file-watch/fidelity.html#consistency).
+  [fidelity deep-dive](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/fidelity.html#consistency).
 
 **[derived]** The verdict the counts support is a light-touch one: six twins across
 ~158,000 rows, the same six for four years, is duplication as the rare exception.
@@ -356,7 +379,9 @@ is surfaced independently in two places with no silent resolution.
 Every figure above comes from grouping a snapshot's `normalised.csv` by the
 cleaned key. In short: read the file, apply
 `callsign.toUpperCase().replace(/[^A-Z0-9/]/g, '')` to the `callsign` column,
-and keep the keys that occur more than once. The odd characters are easiest to
+and keep the keys that occur more than once, setting aside the empty key (rows
+with no callsign at all collide on it) and any token that is simply listed
+twice. The odd characters are easiest to
 see by printing each token's Unicode code points — that is how the `U+00A0`,
 `U+0023`, and `U+002D` above were confirmed. The raw, verbatim source rows sit
 alongside in each snapshot's `raw.csv`.

@@ -5,7 +5,7 @@ small, stubborn oddity in the `status` column to a clean disappearance. It is
 a story about how a register's own edge cases get held, and eventually
 dropped, not about the people who once held these callsigns.*
 
-> **Read this as an account of the register as it stood at 23 June 2026.** It
+> **Read this as an account of the publications held at 23 June 2026.** It
 > was written against the nine vintages held up to
 > [2026-06-23](../../archive/2026-06-23/raw.csv), and its title describes what
 > those nine showed. The next publication,
@@ -18,7 +18,7 @@ dropped, not about the people who once held these callsigns.*
 Every claim below carries one of three tags — **[observed]**, **[derived]**,
 or **[hypothesis]** — so you can tell at a glance what kind of statement it is
 and check it yourself. Select any tag to see its full definition in the
-[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#epistemics).
 
 The counts and rows below were re-derived directly from the archived
 snapshots for this write-up, not carried over from an earlier pass. Where a
@@ -29,12 +29,12 @@ rather than taken on trust.
 
 ## Summary
 
-**[observed]** Nine [vintages](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#vintage)
+**[observed]** Nine [vintages](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#vintage)
 of the open-data register, up to 2026-06-23, were held in this archive when
 this account was written. Two of them —
 [2025-05-27](../../archive/2025-05-27/normalised.csv) and
 [2025-06-08](../../archive/2025-06-08/normalised.csv) — are
-[declared partial](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#declared-complete)
+[declared partial](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#declared-complete)
 (1,074 rows each, a truncated fetch) and are set aside here, the same way the
 project's own sweep set them aside. That leaves seven declared-complete
 vintages: six older ones, tested here, plus 2026-06-23, the newest of the
@@ -58,7 +58,7 @@ verified against the raw text of the publication itself. Only one member of
 the wider seventeen, `G5EFV`, escapes this pattern: it picked up a genuine
 status years earlier and is still listed in that vintage.
 
-**[observed]** That absence lasted one vintage for most of them. The
+**[derived]** That absence lasted one vintage for most of them. The
 2026-09-22 publication carries fifteen rows with an empty status: fourteen of
 the sixteen are listed again, and one callsign appears that no earlier vintage
 held. See the
@@ -75,11 +75,11 @@ holds. Both readings are recorded below; neither is asserted.
 
 ## What a blank `status` is
 
-**[observed]** The register's [status](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#status-values)
+**[observed]** The register's [status](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#status-values)
 column is meant to record one of a small, closed set of values — chiefly
-[Allocated](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#allocated),
-[Reserved](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#reserved),
-or [Available](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#available).
+[Allocated](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#allocated),
+[Reserved](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#reserved),
+or [Available](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#available).
 A **blank** value is a fourth, unlabelled case: the register still holds a
 row for the callsign — a `product`, usually a `type` — but declines to say
 what state it is in. This is not the same as no row at all; it is a row that
@@ -129,10 +129,10 @@ value is stable across two entirely different header shapes (the bare
 three-column 2022 layout and the six/eight-column Salesforce-family layouts
 of 2025 onward), so it survives a schema change as well as time.
 
-**[observed]** Two of the callsigns met so far, `GOOUC` (one of the
-persisting four) and `G98JSS` (from the wider set below), match no known UK
-callsign formation at all — the components parser
-records them as `unparseable`
+**[observed]** `GOOUC`, one of the persisting four, matches no known UK
+callsign formation at all, and nor does `G98JSS`, which belongs to the wider
+set introduced below — the components parser
+records both as `unparseable`
 ([`archive/2025-11-11/components.csv`](../../archive/2025-11-11/components.csv)).
 They are not the only such members: the full count, five of the seventeen, is
 in [its own section below](#some-of-the-cohort-were-never-valid-callsigns-to-begin-with).
@@ -264,7 +264,7 @@ match for any of them. They are not recategorised into `Allocated`,
 `Reserved`, or `Available`; they are not in the file at all.
 
 **[derived]** This is the same shape of evidence the mirror's own
-[availability trap](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#available)
+[availability trap](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#available)
 warns readers about, applied to a whole cohort at once. Looking any of these
 sixteen callsigns up in the 2026-06-23 export returns "no record" — and per that
 warning, **absence of a record is not evidence of availability**. It means
@@ -477,8 +477,9 @@ reproduce the same counts.
   ([tracker](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/292)).
 
 *Observations were re-derived from the archived snapshots for this write-up.
-At 2026-06-23 the register held no row for the sixteen vanished callsigns
-named above. That was written with the warning that it could change in a
+The 2026-06-23 export held no row for the sixteen vanished callsigns
+named above; whether the register behind it did is what the two readings
+leave open. That was written with the warning that it could change in a
 future publication, and in 2026-09-22 it did, for fourteen of them. The same
 warning applies to the September figures: read them fresh from the linked
 lookup pages rather than assuming they stand indefinitely.*

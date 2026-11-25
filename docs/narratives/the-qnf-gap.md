@@ -8,11 +8,11 @@ people who now hold the callsigns it touches.*
 Every claim below carries one of three tags — **[observed]**, **[derived]**,
 or **[hypothesis]** — so you can tell at a glance what kind of statement it is
 and check it yourself. Select any tag to see its full definition in the
-[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#epistemics).
 
 Every figure quoted here is **declared, not verified** — the same standing
 this mirror gives the whole
-[forbidden-suffix section](https://mysteraitch.github.io/amateur-callsigns-file-watch/forbidden/index.html)
+[forbidden-suffix section](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/forbidden/index.html)
 it is drawn from. Where a count appears, the file that produces it is named,
 so it can be regenerated rather than taken on trust.
 
@@ -63,7 +63,7 @@ id 356636, from requester Nan Smith) — the earliest disclosure this mirror
 holds. The exchange is transcribed in
 [`archive/foi/wdtk-356636--all-callsigns-plus-forbidden/correspondence.md`](../../archive/foi/wdtk-356636--all-callsigns-plus-forbidden/correspondence.md),
 and the response letter itself has a browsable rendered copy at
-[`raw-extract-all-call-sign-list-nan-smith.md.html`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html):
+[`raw-extract-all-call-sign-list-nan-smith.md.html`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html):
 
 > We do not hold a policy on reserving unsuitable or inappropriate call
 > signs for allocation. However, as a matter of conventional practice we do
@@ -116,14 +116,14 @@ Q-code while keeping the other 675.
 **[observed]** Every forbidden-suffix disclosure this mirror holds, and where
 `QNF` stands in each
 (full table: [`reports/forbidden-suffix-history.md`](../../reports/forbidden-suffix-history.md);
-rendered section: [the forbidden-suffix index](https://mysteraitch.github.io/amateur-callsigns-file-watch/forbidden/index.html)):
+rendered section: [the forbidden-suffix index](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/forbidden/index.html)):
 
 | vintage | disclosure | distinct suffixes | `QNF` present? |
 |---|---|---:|---|
-| 2016-09 | [`wdtk-356636--all-callsigns-plus-forbidden`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/index.html) | 1,465 | yes |
-| 2019-08-12 | [`wdtk-596532--allocated-reserved-forbidden`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-596532--allocated-reserved-forbidden/index.html) | 1,465 | yes |
-| 2019-09-12 | [`ofcom-756622--published-register-csv`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-756622--published-register-csv/index.html) | 1,465 | yes |
-| 2024-12 | [`ofcom-2024-12--forbidden-suffixes`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2024-12--forbidden-suffixes/index.html) | 1,464 | **no** |
+| 2016-09 | [`wdtk-356636--all-callsigns-plus-forbidden`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/index.html) | 1,465 | yes |
+| 2019-08-12 | [`wdtk-596532--allocated-reserved-forbidden`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-596532--allocated-reserved-forbidden/index.html) | 1,465 | yes |
+| 2019-09-12 | [`ofcom-756622--published-register-csv`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-756622--published-register-csv/index.html) | 1,465 | yes |
+| 2024-12 | [`ofcom-2024-12--forbidden-suffixes`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-2024-12--forbidden-suffixes/index.html) | 1,464 | **no** |
 
 **[observed]** The three earliest disclosures agree exactly — the same
 1,465-suffix set, zero drift, across three years and two separate FOI
@@ -138,7 +138,7 @@ removed* to somewhere between the September 2019 disclosure and the December
 2024 one — a five-year window, not a date.
 
 **[observed]** `QNF`'s own detail page,
-[`/forbidden/suffix/QNF/`](https://mysteraitch.github.io/amateur-callsigns-file-watch/forbidden/suffix/QNF/index.html),
+[`/forbidden/suffix/QNF/`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/forbidden/suffix/QNF/index.html),
 records its first-known-forbidden date as **2016-09** (the earliest
 disclosure vintage, since the 2024 export carries no `LastModifiedDate` for a
 suffix it no longer lists) — the same anchor used throughout this mirror's
@@ -256,11 +256,11 @@ own words
 > Declared, not verified.
 
 Read the flags in full context on the
-[fidelity page](https://mysteraitch.github.io/amateur-callsigns-file-watch/fidelity.html#flag-forbidden-suffix)
+[fidelity page](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/fidelity.html#flag-forbidden-suffix)
 and the
-[second flag's entry](https://mysteraitch.github.io/amateur-callsigns-file-watch/fidelity.html#flag-forbidden-suffix-issued-after-first-known-list),
+[second flag's entry](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/fidelity.html#flag-forbidden-suffix-issued-after-first-known-list),
 or see both callsigns flagged live on
-[`QNF`'s own detail page](https://mysteraitch.github.io/amateur-callsigns-file-watch/forbidden/suffix/QNF/index.html).
+[`QNF`'s own detail page](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/forbidden/suffix/QNF/index.html).
 
 **[observed]** Nothing here is adjudicated. The flag is framed throughout as "a
 candidate for scrutiny, not a verdict" — innocent explanations (a heritage
