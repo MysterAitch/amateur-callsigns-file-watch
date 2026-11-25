@@ -19,6 +19,6 @@
     "allowJs": true,
     "checkJs": true
   },
-  "include": ["site/sw.js"],
+  "include": ["site/sw.js", "site/v1/sw.js"],
   "exclude": ["node_modules", "dist"]
 }
