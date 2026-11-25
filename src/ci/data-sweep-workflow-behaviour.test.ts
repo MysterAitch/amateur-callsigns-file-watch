@@ -195,6 +195,11 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
     return fs.readFileSync(path.join(stubDir, 'calls.log'), 'utf8').split('\n').filter((line) => line.length > 0);
   }
 
+  // Recorded calls that were given this pull request as a whole argument.
+  function callsNaming(prUrl: string): string[] {
+    return callLines().filter((line) => line.split(' ').some((argument) => argument === prUrl));
+  }
+
   const FINISHING_CALLS = ['pr merge', 'api repos/example/repo', 'pr edit', 'issue list', 'issue comment'];
 
   it('DataBranch_WhenNewAndDataOnly_IsOpenedAutoMergedAssignedAndRecorded', () => {
@@ -318,7 +323,10 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
 
     expect(run.status, run.output).toBe(0);
     expect(calls()).toEqual(['pr list', 'pr create', ...FINISHING_CALLS]);
-    expect(callLines().filter((l) => l.includes(FOREIGN_PR_URL))).toEqual([]);
+    expect(callsNaming(FOREIGN_PR_URL)).toEqual([]);
+    // The same search does find the sweep's own pull request, so the empty
+    // result above is not a search that can find nothing.
+    expect(callsNaming(PR_URL).length).toBeGreaterThan(0);
     expect(callLines().find((l) => l.startsWith('pr merge'))).toBe(`pr merge --auto --merge --delete-branch ${PR_URL}`);
   });
 
@@ -331,7 +339,7 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
 
     expect(run.status, run.output).not.toBe(0);
     expect(calls()).toEqual(['pr list', 'pr create', 'pr list']);
-    expect(callLines().filter((l) => l.includes(FOREIGN_PR_URL))).toEqual([]);
+    expect(callsNaming(FOREIGN_PR_URL)).toEqual([]);
   });
 
   it('DataBranch_WhenAnOpenPullRequestIsNotAtTheBranchTip_IsNotActedOn', () => {
