@@ -172,7 +172,12 @@ function mapCell(h: Holding, latestKey: string | undefined): string {
 // visible gaps; a legend maps letter+tint to only the kinds actually present; a
 // keyboard skip steps past the cells. Exported so a test can assert the cells
 // deep-link to real dataset pages.
-export function renderHoldingsMap(holdings: Holding[], afterAnchor = 'past-holdings'): string {
+// `afterAnchor` is the id of the first element after the map; it defaults to
+// the "Browse every dataset" paragraph that follows the map (site/index.html),
+// so the next Tab stop after skipping is that link, not something beyond it.
+// The skip-link test (skip-link-targets.test.ts) pins it as existing on the
+// assembled page.
+export function renderHoldingsMap(holdings: Holding[], afterAnchor = 'holdings-map-end'): string {
   // Keyed on vintageYear, not raw vintage presence: an entry whose vintage is
   // defined but not ISO-year-leading has no year to stack it under, so it
   // groups with the undated cells rather than vanishing from both.

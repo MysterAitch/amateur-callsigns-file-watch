@@ -66,13 +66,28 @@ describe('callsignPillLink', { tags: ['ui'] }, () => {
     expect(pill.getAttribute('href')).toBe('callsign.html?c=gb100abcde');
   });
 
-  it('CallsignPill_WhenCallsignEmpty_ProducesEmptyLabelledPillWithoutTitle', () => {
-    // Edge case: an absent/blank callsign yields an empty label rather than a
-    // misleading one, and carries no supplementary title.
+  it('CallsignPill_WhenCallsignEmpty_ProducesLabelledBlankMarkerNotALink', () => {
+    // A blank callsign has no per-callsign page; a link to callsign.html?c= is a
+    // link to nowhere with an invisible label.
+    // The class is the server's blank class (callsignField in
+    // src/ci/render/callsign.ts), so both sides style one thing.
     const pill = callsignPillLink(el, '');
-    expect(pill.textContent).toBe('');
-    expect(pill.getAttribute('href')).toBe('callsign.html?c=');
-    expect(pill.hasAttribute('title')).toBe(false);
+    expect(pill.tagName).toBe('EM');
+    expect(pill.textContent).toBe('(blank)');
+    expect(pill.hasAttribute('href')).toBe(false);
+    expect(pill.className).toBe(`${CALLSIGN_CLASS} cs-blank`);
+  });
+
+  it('CallsignPill_WhenCallsignIsOnlyWhitespace_IsNotCalledBlankAndStaysALink', () => {
+    // Agrees with the server's judgement: only the empty string is blank. A
+    // whitespace-only value is a damaged callsign, not an absent one.
+    const pill = callsignPillLink(el, ' ');
+    expect(pill.tagName).toBe('A');
+  });
+
+  it('CallsignPill_WhenGivenTheCallsignPageUrl_ResolvesTheHrefAgainstItNotTheHostingPage', () => {
+    const pill = callsignPillLink(el, 'M7 TEE', {}, 'https://example.test/v0/callsign.html');
+    expect(pill.getAttribute('href')).toBe('https://example.test/v0/callsign.html?c=M7%20TEE');
   });
 });
 
@@ -111,10 +126,12 @@ describe('callsignPillRaw', { tags: ['ui'] }, () => {
     expect(pill.textContent).toBe('M7TEE{SP}');
   });
 
-  it('CallsignPillRaw_WhenCallsignEmpty_ProducesEmptyPillWithNoMarkers', () => {
-    // Edge case: nothing to iterate, nothing to mark - not an error.
+  it('CallsignPillRaw_WhenCallsignEmpty_ProducesLabelledBlankMarkerNotAnInvisibleChip', () => {
+    // An empty raw cell is information (an unkeyable row), so it is labelled
+    // rather than rendered as a chip with nothing in it.
     const pill = callsignPillRaw(el, '');
-    expect(pill.textContent).toBe('');
+    expect(pill.textContent).toBe('(blank)');
+    expect(pill.className).toBe(`${CALLSIGN_CLASS} cs-blank`);
     expect(pill.querySelectorAll('.marker').length).toBe(0);
   });
 });
