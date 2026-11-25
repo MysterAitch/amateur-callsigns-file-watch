@@ -359,6 +359,9 @@ describe('cicd.yaml structure', { tags: ['unit'] }, () => {
     expect(holdings).toBeGreaterThan(-1);
     expect(stamp, 'the home baseline is stamped before the v1 pages reach the root').toBeGreaterThan(pages);
     expect(stamp, 'the home baseline is stamped before the holdings manifest is built').toBeGreaterThan(holdings);
+    const upload = block.indexOf('actions/upload-pages-artifact@');
+    expect(upload, 'the Pages upload step is missing').toBeGreaterThan(-1);
+    expect(stamp, 'the home baseline is stamped after the site has been uploaded').toBeLessThan(upload);
   });
 
   it('RootDiscoveryFiles_AreBuilt_AtTheDeployRoot', () => {

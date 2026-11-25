@@ -42,6 +42,42 @@ export function stampMarkedRegion(html: string, start: string, end: string, rend
   return { html: out + html.slice(from), replaced };
 }
 
+/**
+ * Refuse a page whose regions are not each opened exactly once and closed before
+ * the next opens. Without this, a region that lost its closing marker runs on to
+ * the next region's closing marker and swallows that region (whose stamp then
+ * reports the wrong one missing), and a stray closing marker passes unnoticed.
+ * `starts` maps each region's name to its opening marker; all share `end`.
+ */
+export function assertBalancedRegions(html: string, starts: ReadonlyMap<string, string>, end: string, where: string): void {
+  const markers: { at: number; name: string | null }[] = [];
+  const all = (needle: string): number[] => {
+    const found: number[] = [];
+    for (let at = html.indexOf(needle); at !== -1; at = html.indexOf(needle, at + needle.length)) found.push(at);
+    return found;
+  };
+  for (const [name, start] of starts) {
+    const found = all(start);
+    if (found.length !== 1) {
+      throw new Error(`${where}: expected exactly one "${name}" region, found ${found.length} opening markers - the page's markers are the contract between the page and its stamp`);
+    }
+    markers.push({ at: found[0] ?? 0, name });
+  }
+  for (const at of all(end)) markers.push({ at, name: null });
+  markers.sort((a, b) => a.at - b.at);
+  let open: string | null = null;
+  for (const m of markers) {
+    if (m.name !== null) {
+      if (open !== null) throw new Error(`${where}: the "${open}" region has no closing marker before the "${m.name}" region opens`);
+      open = m.name;
+    } else {
+      if (open === null) throw new Error(`${where}: a closing marker at offset ${m.at} closes no region`);
+      open = null;
+    }
+  }
+  if (open !== null) throw new Error(`${where}: the "${open}" region has no closing marker`);
+}
+
 // The tree's shape in document order, as `depth:tag` steps. Compared either
 // side of a serialise-and-reparse so a divergence names where it happened.
 function treeShape(root: Element): string[] {

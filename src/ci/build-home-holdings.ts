@@ -34,9 +34,9 @@
  *     all). The qualifying in-repo set is deliberately small; expanding the
  *     sourced catalogue is a tracked follow-up (community-level register history).
  *
- * The 1903 history horizon and the latest-register callsign total are NOT in
- * this manifest: neither is carried by the publication enumeration, so they stay
- * report-cited constants on the home model, kept with their citations.
+ * The 1903 history horizon is NOT in this manifest: the publication enumeration
+ * does not carry it, so it stays a report-cited constant on the home model. The
+ * newest register's callsign total is (latestRegister).
  *
  * DETERMINISM. The output is a pure function of its inputs: publications are
  * ordered by (vintage, title); milestones by (start, label); no timestamps or

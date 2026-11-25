@@ -1125,8 +1125,7 @@ jobs:
       # Home page no-script baseline: write the "at a glance" and "from the
       # record" sections into the served index.html from the holdings manifest
       # just built, through the same mount functions the page's script uses.
-      # Fails the build where the manifest leaves a figure to a hand-written
-      # default (src/ci/build-v1-home-static.ts says which). Runs outside the
+      # When it refuses to stamp: staticHomeModel in that file. Runs outside the
       # golden-master closure, as the chip stamp does.
       - name: Stamp the home page's no-script baseline
         run: node src/ci/build-v1-home-static.ts _site

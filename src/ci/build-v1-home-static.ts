@@ -17,13 +17,7 @@
  * would not. It runs after build-home-holdings.ts, outside the golden-master
  * closure, as the chip and history stamps do.
  *
- * WHAT IT REFUSES. Where the manifest leaves a figure unstated, the script keeps
- * its hand-written default for that figure. That is tolerable for a page the
- * script will replace, and not for a baseline that has no script behind it, so
- * the build fails instead of stamping it: no register snapshot held (the
- * callsign total), a newest publication with no full date (the snapshot date and
- * the "read as of" reading), and a held run with no years. The one figure the
- * manifest never carries is the 1903 history horizon, a cited constant.
+ * WHAT IT REFUSES is stated once, at staticHomeModel below, where it is enforced.
  *
  * WHAT IT LEAVES OUT. The per-publication marks and the milestone caption are
  * not stamped: the caption's previous and next controls do nothing without a
@@ -47,11 +41,12 @@ import { serialise, setBuildDocument, renderDocument } from '../../site/v1/el.js
 import {
   defaultHomeModel,
   enhanceHomeModel,
+  newestReading,
   parseHoldings,
   HOME_SECTION_REGISTRY,
   MANIFEST_DERIVED_SECTIONS,
 } from '../../site/v1/home-sections.js';
-import { assertReparsesIdentically, stampMarkedRegion } from './static-region.ts';
+import { assertBalancedRegions, assertReparsesIdentically, stampMarkedRegion } from './static-region.ts';
 
 // The el() foundation's Node build backend (ADR 0022): one jsdom document,
 // supplied once, used only where no browser document exists.
@@ -72,20 +67,34 @@ export const STAMPED_HOME_SECTIONS: readonly string[] = MANIFEST_DERIVED_SECTION
 
 /**
  * The model the baseline is stamped from: the script's enhancement of its
- * defaults by the manifest, with the marks left out. Throws where the manifest
- * leaves a figure to the hand-written default.
+ * defaults by the manifest (enhanceHomeModel), with the marks left out.
+ *
+ * THE REFUSAL RULE (the one statement of it; other files point here). Where the
+ * manifest leaves a figure to enhanceHomeModel's fallback, the script shows its
+ * hand-written default for that figure. That is tolerable for a page the script
+ * then replaces, and not for a baseline with no script behind it, so the build
+ * fails instead of stamping it. Each check asks the same question the fallback
+ * does, never a stricter or looser one of its own:
+ *   - no register snapshot named: the callsign total would be the default;
+ *   - newestReading null: the newest date cannot be stated at any precision
+ *     (a month-only or year-only date CAN be, and is stamped as such);
+ *   - no held-run years: the span would be the default.
+ * The one figure the manifest never carries is the 1903 history horizon, a
+ * cited constant pinned to its report by site/v1/sections.test.ts.
  */
 export function staticHomeModel(holdings: HomeHoldings, where: string): HomeModel {
   if (holdings.latestRegister === null || holdings.latestRegister === undefined) {
     throw new Error(`build-v1-home-static: ${where} names no register snapshot, so the page would keep its hand-written callsign total - refusing to stamp it`);
   }
-  if (holdings.latestDateIso === null || !/^\d{4}-\d{2}-\d{2}$/.test(holdings.latestDateIso)) {
-    throw new Error(`build-v1-home-static: ${where} gives the newest publication no full date (${String(holdings.latestDateIso)}), so the page would keep its hand-written snapshot date - refusing to stamp it`);
+  if (newestReading(holdings) === null) {
+    const newest = holdings.latestDateIso ?? holdings.publications.map(p => p.vintage).sort().at(-1) ?? '(no publications)';
+    throw new Error(`build-v1-home-static: ${where} gives the newest publication a date the page cannot state (${newest}), so the page would keep its hand-written snapshot date - refusing to stamp it`);
   }
   if (holdings.heldStartYear === null || holdings.latestYear === null) {
     throw new Error(`build-v1-home-static: ${where} gives the held run no years, so the page would keep its hand-written span - refusing to stamp it`);
   }
-  return enhanceHomeModel(defaultHomeModel(), { ...holdings, publications: [], milestones: [] });
+  const model = enhanceHomeModel(defaultHomeModel(), holdings);
+  return { ...model, span: { ...model.span, publications: [], milestones: [] } };
 }
 
 /** One home section rendered by the script's own mount, serialised, and proven to reparse to the same tree. */
@@ -114,7 +123,7 @@ function readHoldings(siteRoot: string): HomeHoldings {
   return holdings;
 }
 
-export function buildV1HomeStatic(siteRoot: string): { sections: string[]; latestDateIso: string } {
+export function buildV1HomeStatic(siteRoot: string): { sections: string[]; newest: string } {
   const manifestPath = path.join(siteRoot, 'holdings.json');
   const holdings = readHoldings(siteRoot);
   const model = staticHomeModel(holdings, manifestPath);
@@ -124,6 +133,7 @@ export function buildV1HomeStatic(siteRoot: string): { sections: string[]; lates
     throw new Error(`build-v1-home-static: ${target} not found - the v1 shell must be deployed before the home baseline is stamped`);
   }
   let html = fs.readFileSync(target, 'utf8');
+  assertBalancedRegions(html, new Map(STAMPED_HOME_SECTIONS.map(id => [id, HOME_REGION_START(id)])), HOME_REGION_END, `build-v1-home-static: ${target}`);
   for (const id of STAMPED_HOME_SECTIONS) {
     const stamped = stampMarkedRegion(html, HOME_REGION_START(id), HOME_REGION_END, homeSectionHtml(model, id));
     if (stamped.replaced !== 1) {
@@ -132,11 +142,11 @@ export function buildV1HomeStatic(siteRoot: string): { sections: string[]; lates
     html = stamped.html;
   }
   fs.writeFileSync(target, html);
-  return { sections: [...STAMPED_HOME_SECTIONS], latestDateIso: holdings.latestDateIso ?? '' };
+  return { sections: [...STAMPED_HOME_SECTIONS], newest: model.span.latestLabel };
 }
 
 if (import.meta.main) {
   const siteRoot = process.argv.slice(2).filter(a => a.trim().length > 0)[0] ?? '_site';
-  const { sections, latestDateIso } = buildV1HomeStatic(siteRoot);
-  console.log(`stamped the home page's no-script baseline from the ${latestDateIso} holdings: ${sections.join(', ')}`);
+  const { sections, newest } = buildV1HomeStatic(siteRoot);
+  console.log(`stamped the home page's no-script baseline, newest publication ${newest}: ${sections.join(', ')}`);
 }

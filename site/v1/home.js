@@ -26,7 +26,7 @@ async function enhanceFromHoldings(root) {
     const text = await res.text();
     const parsed = /** @type {unknown} */ (JSON.parse(text));
     // Validate the untrusted manifest shape before use; a wrong-shaped manifest
-    // degrades to the grounded baseline rather than mis-rendering.
+    // leaves the page as served rather than mis-rendering.
     const holdings = parseHoldings(parsed);
     if (holdings === null) return;
     remountManifestSections(root, enhanceHomeModel(defaultHomeModel(), holdings));

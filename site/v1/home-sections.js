@@ -45,16 +45,13 @@ const link = (href, label, cls = null) => {
 // and the site-bar chip cannot split — one figure, authored once and stamped at
 // build time. The remaining figures (the 1903 history horizon, the latest-
 // register callsign total, the ISO/month rendering of the newest date) are
-// hand-authored CONSTANTS, and every one but the 1903 horizon is a default a
-// deployed reader should not see: the deploy stamps the two sections that show them
-// from the holdings manifest (src/ci/build-v1-home-static.ts, which fails rather
-// than stamp a default), and the script keeps those stamped sections until the
-// manifest arrives (renderHomeOverBaseline). A deployed page whose manifest
-// failed to load once showed these June figures beside September ones; that is
-// why. One path still reaches them: a manifest that parses but names no
-// register (an older cached copy) re-mounts the sections with the default
-// callsign total. The committed index.html carries the stamp's render of these
-// defaults.
+// hand-authored CONSTANTS. Every one but the 1903 horizon is a default that the
+// deploy replaces in the served page (see staticHomeModel in
+// src/ci/build-v1-home-static.ts for when it refuses instead), and that the
+// script does not draw over the served page (renderHomeOverBaseline). One path
+// still reaches them: a manifest that parses but names no register (an older
+// cached copy) re-mounts the sections with the default callsign total, though
+// its unit then names the register it came from.
 // Citations:
 //  - 1903: the earliest dated allocation the record holds
 //    (reports/sequence-analytics.md, "Dated allocations 1903-05-03 → …"), pinned
@@ -105,8 +102,8 @@ const GROUNDED_ARCHIVE = {
  * @property {number} latestYear        the newest held publication's year
  * @property {string} latestLabel       humanised newest-held date (shared with the dated-fact chip)
  * @property {number} count             publications held (shared with the dated-fact chip)
- * @property {HoldingPublication[]} [publications]  the down-markers; absent on the grounded no-JS baseline
- * @property {HoldingMilestone[]} [milestones]      the up-markers; absent on the grounded no-JS baseline
+ * @property {HoldingPublication[]} [publications]  the down-markers; absent or empty where the marks are not drawn (the defaults, and the stamped no-script page)
+ * @property {HoldingMilestone[]} [milestones]      the up-markers; absent or empty where the marks are not drawn
  * @property {string} [rotationSeed]    build-stable seed for the milestone rotation (never Math.random)
  */
 /**
@@ -123,28 +120,36 @@ const GROUNDED_ARCHIVE = {
  * so the grounded default and the manifest-derived enhancement build the readout
  * identically — the readout can never desync from the span dial beside it, since
  * both read the same figures (issue #965).
- * @param {{ count: number, callsigns: number, heldStartYear: number, latestYear: number, latestDateIso: string, latestMonthLabel: string }} f
+ * @param {{ count: number, callsigns: number, registerVintage: string, heldStartYear: number, latestYear: number, latestDateIso: string, latestMonthLabel: string }} f
  * @returns {{ k: string, v: string, u: string }[]}
  */
 function glanceCells(f) {
   return [
     { k: 'publications', v: String(f.count), u: `folded, ${f.heldStartYear}–${f.latestYear}` },
-    { k: 'callsigns', v: f.callsigns.toLocaleString('en-GB'), u: 'latest register' },
+    { k: 'callsigns', v: f.callsigns.toLocaleString('en-GB'), u: registerUnit(f.registerVintage) },
     { k: 'span held', v: `${f.latestYear - f.heldStartYear}y`, u: `${f.heldStartYear} → ${f.latestYear}` },
     { k: 'latest snapshot', v: f.latestDateIso, u: f.latestMonthLabel },
   ];
 }
 
+// The callsign total is the newest REGISTER's, and the newest publication of
+// any kind can be something else (a later disclosure), so the total always
+// names the register it was counted from rather than sitting beside the
+// "latest snapshot" date as if the two described one publication.
+/** @param {string} registerVintage */
+const registerUnit = (registerVintage) => `register of ${registerVintage}`;
+
 // The from-the-record fact about the newest register snapshot, written from its
 // vintage and record count so the default and the manifest-derived model say it
-// in the same words. It leads the pool, and enhanceHomeModel replaces it by
-// that position.
+// in the same words. It says "register snapshot", not "publication", for the
+// reason above. It leads the pool, and enhanceHomeModel replaces it by that
+// position.
 /** @param {string} vintageIso @param {number} records */
-function newestPublicationFact(vintageIso, records) {
+function newestRegisterFact(vintageIso, records) {
   const total = records.toLocaleString('en-GB');
   return {
     headline: `${total} callsigns`,
-    sentence: `The newest publication held (${vintageIso}) records ${total} callsigns – the whole body a decade of publications is folded against.`,
+    sentence: `The newest register snapshot held (${vintageIso}) records ${total} callsigns – the whole body a decade of publications is folded against.`,
   };
 }
 
@@ -155,7 +160,7 @@ export function defaultHomeModel() {
     facts: { date: g.latestDateLabel, count: g.publicationsHeld },
     // Holdings readouts, derived from the grounded source above.
     glance: glanceCells({
-      count: g.publicationsHeld, callsigns: g.callsigns, heldStartYear: g.heldStartYear,
+      count: g.publicationsHeld, callsigns: g.callsigns, registerVintage: g.latestDateIso, heldStartYear: g.heldStartYear,
       latestYear: g.latestYear, latestDateIso: g.latestDateIso, latestMonthLabel: g.latestMonthLabel,
     }),
     // The archive-span dial's facts — the same grounded figures, plus the deeper
@@ -175,18 +180,17 @@ export function defaultHomeModel() {
     // From-the-record notable-detail pool. A different detail leads each time
     // the newest publication changes, chosen by the seeded rotation above. Each
     // fact is record-scoped and sourced:
-    //  1. The newest register snapshot's record count (newestPublicationFact):
-    //     the hand-authored default here, replaced from the holdings manifest
-    //     when it arrives.
+    //  1. The newest register snapshot's record count (newestRegisterFact):
+    //     the hand-authored default here, replaced from the holdings manifest.
     //  2. reports/forbidden-suffix-history.md — 1,465 three-letter suffixes
     //     withheld in the 2016-09 disclosure; the set has since shifted
     //     (+JIZ, −QNF, −ZFJ by 2024).
     //  3. The M2 prefix block appears reserved-only across the publications
-    //     held (no issued callsign in it): reports/sequence-analytics.md gives
-    //     M2 no dated allocation, pinned to that report by
+    //     held (no issued callsign in it): every M2 row in the archived
+    //     register snapshots has status Reserved, pinned to the archive by
     //     site/v1/sections.test.ts.
     fromTheRecord: [
-      newestPublicationFact(g.latestDateIso, g.callsigns),
+      newestRegisterFact(g.latestDateIso, g.callsigns),
       {
         headline: '1,465 withheld suffixes',
         sentence: 'The 2016 forbidden-suffix disclosure withheld 1,465 three-letter suffixes from new issues; the held record shows that set shifting since – one added, two dropped by 2024.',
@@ -241,6 +245,29 @@ export function humaniseIsoMonth(iso) {
   return month === undefined ? null : `${month} ${m[1]}`;
 }
 
+/**
+ * The newest publication's date as the page states it, at the precision the
+ * manifest holds: "16 March 2027" for a full date, "April 2027" for a month,
+ * "2027" for a bare year. The manifest's full newest date leads; where the
+ * newest publication is dated only to the month or year (latestDateIso null),
+ * its vintage is read from the publications list. Null when there is nothing
+ * the page can state (no publications, or a value such as month 13), in which
+ * case the page keeps its default and the deploy's stamp refuses.
+ * @param {HomeHoldings} holdings
+ * @returns {{ iso: string, label: string, monthLabel: string } | null}
+ */
+export function newestReading(holdings) {
+  let iso = holdings.latestDateIso;
+  if (iso === null) {
+    for (const p of holdings.publications) if (iso === null || p.vintage > iso) iso = p.vintage;
+  }
+  if (iso === null) return null;
+  const yearOnly = /^\d{4}$/.test(iso) ? iso : null;
+  const monthLabel = humaniseIsoMonth(iso) ?? yearOnly;
+  const label = humaniseIsoDate(iso) ?? monthLabel;
+  return label === null || monthLabel === null ? null : { iso, label, monthLabel };
+}
+
 // Fold the build-derived holdings manifest into a home model: the span dial's
 // figures, its bi-temporal marks and the newest register's callsign total
 // become derived (retiring the hand-authored values for the enhanced render),
@@ -252,36 +279,32 @@ export function humaniseIsoMonth(iso) {
 export function enhanceHomeModel(base, holdings) {
   const heldStartYear = holdings.heldStartYear ?? base.span.heldStartYear;
   const latestYear = holdings.latestYear ?? base.span.latestYear;
-  const latestLabel = humaniseIsoDate(holdings.latestDateIso) ?? base.span.latestLabel;
+  const reading = newestReading(holdings);
+  const latestLabel = reading?.label ?? base.span.latestLabel;
   // Project the "at a glance" readout from the SAME manifest the span dial reads,
   // so the two can never disagree (issue #965). The callsign total comes from
-  // the manifest's newest register snapshot, and is kept from the grounded base
-  // only when the manifest names none; the newest-snapshot cell falls back to
-  // the base cell honestly when the manifest carries no full date (never a
-  // stale-but-confident invented ISO).
+  // the manifest's newest register snapshot, and is kept from the base only
+  // when the manifest names none; the newest-snapshot cell keeps the base cell
+  // only when the manifest's newest date cannot be stated (newestReading).
   const register = holdings.latestRegister ?? null;
   const glance = base.glance.map((cell) => {
-    if (cell.k === 'callsigns' && register !== null) return { ...cell, v: register.records.toLocaleString('en-GB') };
+    if (cell.k === 'callsigns' && register !== null) return { ...cell, v: register.records.toLocaleString('en-GB'), u: registerUnit(register.vintage) };
     if (cell.k === 'publications') return { ...cell, v: String(holdings.count), u: `folded, ${heldStartYear}–${latestYear}` };
     if (cell.k === 'span held') return { ...cell, v: `${latestYear - heldStartYear}y`, u: `${heldStartYear} → ${latestYear}` };
-    if (cell.k === 'latest snapshot') {
-      return holdings.latestDateIso === null
-        ? cell
-        : { ...cell, v: holdings.latestDateIso, u: humaniseIsoMonth(holdings.latestDateIso) ?? cell.u };
-    }
+    if (cell.k === 'latest snapshot') return reading === null ? cell : { ...cell, v: reading.iso, u: reading.monthLabel };
     return cell;
   });
   // The pool's leading fact is the one about the newest register (see
-  // newestPublicationFact); the rest are not about any one publication.
+  // newestRegisterFact); the rest are not about any one publication.
   const fromTheRecord = register === null
     ? base.fromTheRecord
-    : [newestPublicationFact(register.vintage, register.records), ...base.fromTheRecord.slice(1)];
+    : [newestRegisterFact(register.vintage, register.records), ...base.fromTheRecord.slice(1)];
   return {
     ...base,
     facts: { date: latestLabel, count: holdings.count },
     glance,
     fromTheRecord,
-    rotationSeed: holdings.latestDateIso ?? base.rotationSeed,
+    rotationSeed: reading?.iso ?? base.rotationSeed,
     span: {
       ...base.span,
       count: holdings.count,
@@ -290,7 +313,7 @@ export function enhanceHomeModel(base, holdings) {
       latestLabel,
       publications: holdings.publications,
       milestones: holdings.milestones,
-      rotationSeed: holdings.latestDateIso ?? String(latestYear),
+      rotationSeed: reading?.iso ?? String(latestYear),
     },
   };
 }
@@ -299,8 +322,8 @@ export function enhanceHomeModel(base, holdings) {
 // clean typed value or null on ANY mismatch — never `as` on untrusted network
 // input (the #812 anti-pattern). The shared src/shared/json-shape.ts validator
 // is a Node build module and cannot be imported into a browser module, so this
-// is its browser-side equivalent; the caller degrades to the grounded baseline
-// when it returns null.
+// is its browser-side equivalent; when it returns null the caller leaves the
+// page as served.
 /** @param {unknown} raw @returns {HomeHoldings | null} */
 export function parseHoldings(raw) {
   if (raw === null || typeof raw !== 'object') return null;
@@ -606,9 +629,9 @@ function mountSpanDial(host, span) {
   };
 
   // The bi-temporal marks are drawn only when the build-derived holdings
-  // manifest has been consumed (the enhanced model); the grounded no-JS baseline
-  // carries the axis, count and needle plus an honest note that the marks appear
-  // with the script.
+  // manifest's marks are in the model; without them (the defaults, and the
+  // stamped no-script page) the dial carries the axis, count and needle plus an
+  // honest note that the marks appear with the script.
   const enhanced = geo.pips.length > 0 || geo.milestones.length > 0;
 
   const dial = el('div', enhanced ? 'spandial enhanced' : 'spandial');

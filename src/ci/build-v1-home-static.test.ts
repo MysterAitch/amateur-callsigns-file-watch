@@ -35,15 +35,16 @@ import { renderDocument } from '../../site/v1/el.js';
 
 type Dataset = { lane: 'open-data' | 'foi'; vintage: string | null; title: string; classes: string[]; rows: number; unkeyable?: number };
 
-// Three publications 2013 to 2027; the newest register snapshot holds
-// 4,321 keyable rows and 2 unkeyable ones, so 4,323 records.
-// Known answers: publications 3; "folded, 2013–2027"; callsigns 4,323;
-// span held 14y; latest snapshot 2027-03-16 / March 2027; read as of
-// 16 March 2027. The seed 2027-03-16 rotates the from-the-record pool to its
-// first fact (character codes sum to 495, and 495 mod 3 is 0), so the
-// newest-publication sentence leads.
+// Three publications 2011 to 2027 (2011, not the defaults' 2013, so a leaked
+// default start year would show); the newest register snapshot holds 4,321
+// keyable rows and 2 unkeyable ones, so 4,323 records.
+// Known answers: publications 3; "folded, 2011–2027"; callsigns 4,323 from the
+// register of 2027-03-16; span held 16y; latest snapshot 2027-03-16 / March
+// 2027; read as of 16 March 2027. The seed 2027-03-16 rotates the
+// from-the-record pool to its first fact (character codes sum to 495, and 495
+// mod 3 is 0), so the newest-register sentence leads.
 const MARCH_2027: Dataset[] = [
-  { lane: 'foi', vintage: '2013-09-06', title: 'available pool', classes: ['available-pool'], rows: 100 },
+  { lane: 'foi', vintage: '2011-09-06', title: 'available pool', classes: ['available-pool'], rows: 100 },
   { lane: 'open-data', vintage: '2019-05-01', title: 'Ofcom open data, 2019-05-01', classes: ['register-snapshot'], rows: 5000 },
   { lane: 'open-data', vintage: '2027-03-16', title: 'Ofcom open data, 2027-03-16', classes: ['register-snapshot'], rows: 4321, unkeyable: 2 },
 ];
@@ -54,6 +55,34 @@ const MARCH_2027: Dataset[] = [
 const SEPTEMBER_2027: Dataset[] = [
   ...MARCH_2027,
   { lane: 'open-data', vintage: '2027-09-19', title: 'Ofcom open data, 2027-09-19', classes: ['register-snapshot'], rows: 5000 },
+];
+
+// A disclosure dated only to April 2027, newer than the 2027-03-16 register.
+// Month-only vintages are ordinary (11 of the 66 publications held on
+// 2026-11-25). Known answers: publications 4; latest snapshot 2027-04 / April
+// 2027; read as of April 2027; callsigns 4,323 from the register of
+// 2027-03-16. Seed "2027-04" sums to 348, 0 mod 3, so the newest-register
+// sentence leads and names 2027-03-16.
+const APRIL_2027_MONTH_ONLY: Dataset[] = [
+  ...MARCH_2027,
+  { lane: 'foi', vintage: '2027-04', title: 'issuance events', classes: ['issuance-events'], rows: 12 },
+];
+
+// A month-only disclosure in the same month as the register: the register's
+// full date is the newer string, so it stays the newest. Known answers:
+// latest snapshot 2027-03-16 / March 2027; read as of 16 March 2027.
+const MARCH_2027_SAME_MONTH: Dataset[] = [
+  ...MARCH_2027,
+  { lane: 'foi', vintage: '2027-03', title: 'issuance events', classes: ['issuance-events'], rows: 12 },
+];
+
+// A fully dated disclosure newer than the register. Known answers: latest
+// snapshot 2027-05-02 / May 2027; callsigns 4,323 from the register of
+// 2027-03-16. Seed "2027-05-02" sums to 492, 0 mod 3, so the newest-register
+// sentence leads and names 2027-03-16, not 2027-05-02.
+const MAY_2027_NOT_A_REGISTER: Dataset[] = [
+  ...MARCH_2027,
+  { lane: 'foi', vintage: '2027-05-02', title: 'available pool', classes: ['available-pool'], rows: 30 },
 ];
 
 // The figures the committed page and the page's script defaults carry. None of
@@ -97,13 +126,45 @@ describe('build-v1-home-static - the home page served with no script', { tags: [
     buildV1HomeStatic(dir);
     const doc = served(dir);
     expect(glanceCells(doc)).toEqual([
-      'publications | 3 | folded, 2013–2027',
-      'callsigns | 4,323 | latest register',
-      'span held | 14y | 2013 → 2027',
+      'publications | 3 | folded, 2011–2027',
+      'callsigns | 4,323 | register of 2027-03-16',
+      'span held | 16y | 2011 → 2027',
       'latest snapshot | 2027-03-16 | March 2027',
     ]);
     expect(norm(doc.querySelector('.spandial .sd-foot')?.textContent)).toContain('read as of 16 March 2027');
-    expect(fromTheRecord(doc)).toContain('The newest publication held (2027-03-16) records 4,323 callsigns');
+    expect(fromTheRecord(doc)).toContain('The newest register snapshot held (2027-03-16) records 4,323 callsigns');
+  });
+
+  it('HomePage_WhenTheNewestPublicationIsDatedOnlyToTheMonth_StatesThatMonthAndDatesTheCallsignTotalByItsRegister', () => {
+    const dir = scaffold(holdingsJson(APRIL_2027_MONTH_ONLY));
+    buildV1HomeStatic(dir);
+    const doc = served(dir);
+    expect(glanceCells(doc)).toEqual([
+      'publications | 4 | folded, 2011–2027',
+      'callsigns | 4,323 | register of 2027-03-16',
+      'span held | 16y | 2011 → 2027',
+      'latest snapshot | 2027-04 | April 2027',
+    ]);
+    expect(norm(doc.querySelector('.spandial .sd-foot')?.textContent)).toContain('read as of April 2027');
+    expect(fromTheRecord(doc)).toContain('The newest register snapshot held (2027-03-16) records 4,323 callsigns');
+  });
+
+  it('HomePage_WhenAMonthOnlyPublicationSharesTheRegistersMonth_KeepsTheRegistersFullDateAsNewest', () => {
+    const dir = scaffold(holdingsJson(MARCH_2027_SAME_MONTH));
+    buildV1HomeStatic(dir);
+    const doc = served(dir);
+    expect(glanceCells(doc)).toContain('latest snapshot | 2027-03-16 | March 2027');
+    expect(norm(doc.querySelector('.spandial .sd-foot')?.textContent)).toContain('read as of 16 March 2027');
+  });
+
+  it('HomePage_WhenAPublicationNewerThanTheRegisterIsNotARegister_NeverPresentsTheTwoAsOne', () => {
+    const dir = scaffold(holdingsJson(MAY_2027_NOT_A_REGISTER));
+    buildV1HomeStatic(dir);
+    const doc = served(dir);
+    expect(glanceCells(doc)).toContain('latest snapshot | 2027-05-02 | May 2027');
+    expect(glanceCells(doc)).toContain('callsigns | 4,323 | register of 2027-03-16');
+    expect(fromTheRecord(doc)).toContain('The newest register snapshot held (2027-03-16) records 4,323 callsigns');
+    expect(fromTheRecord(doc)).not.toContain('2027-05-02');
   });
 
   it('HomePage_WhenServedWithNoScript_CarriesNoHandWrittenFigure', () => {
@@ -118,10 +179,14 @@ describe('build-v1-home-static - the home page served with no script', { tags: [
     }
   });
 
-  it('HomePage_WhenServedWithNoScript_MatchesTheFiguresTheScriptDrawsFromTheSameManifest', () => {
+  it.each([
+    ['a register newest', MARCH_2027],
+    ['a month-only publication newest', APRIL_2027_MONTH_ONLY],
+    ['a non-register publication newest', MAY_2027_NOT_A_REGISTER],
+  ])('HomePage_WhenServedWithNoScript_WithS_MatchesTheFiguresTheScriptDrawsFromTheSameManifest', (_scenario, datasets) => {
     // The script's path: parse the very manifest bytes the stamp read, enhance
     // the default model, re-mount the manifest-derived sections.
-    const manifest = holdingsJson(MARCH_2027);
+    const manifest = holdingsJson(datasets);
     const dir = scaffold(manifest);
     buildV1HomeStatic(dir);
     const holdings = parseHoldings(JSON.parse(manifest));
@@ -139,7 +204,7 @@ describe('build-v1-home-static - the home page served with no script', { tags: [
       .map(s => norm(s.textContent))
       .filter(t => !t.endsWith('register milestones'));
     expect(foot(doc)).toEqual(foot(scripted));
-    expect(foot(doc)).toContain('read as of 16 March 2027');
+    for (const stale of HAND_WRITTEN_DEFAULTS) expect(norm(scripted.textContent), `the script still says ${stale}`).not.toContain(stale);
   });
 
   it('HomePage_WhenServedWithNoScript_DrawsNoMarksAndSaysTheyComeWithTheScript', () => {
@@ -171,12 +236,12 @@ describe('build-v1-home-static - publications arriving and edge cases', { tags: 
     buildV1HomeStatic(dir);
     const doc = served(dir);
     expect(glanceCells(doc)).toEqual([
-      'publications | 4 | folded, 2013–2027',
-      'callsigns | 5,000 | latest register',
-      'span held | 14y | 2013 → 2027',
+      'publications | 4 | folded, 2011–2027',
+      'callsigns | 5,000 | register of 2027-09-19',
+      'span held | 16y | 2011 → 2027',
       'latest snapshot | 2027-09-19 | September 2027',
     ]);
-    expect(fromTheRecord(doc)).toContain('The newest publication held (2027-09-19) records 5,000 callsigns');
+    expect(fromTheRecord(doc)).toContain('The newest register snapshot held (2027-09-19) records 5,000 callsigns');
     const text = norm(doc.body.textContent);
     expect(text).not.toContain('4,323');
     expect(text).not.toContain('2027-03-16');
@@ -223,7 +288,7 @@ describe('build-v1-home-static - publications arriving and edge cases', { tags: 
     const dir = scaffold(holdingsJson(empty));
     buildV1HomeStatic(dir);
     const doc = served(dir);
-    expect(glanceCells(doc)).toContain('callsigns | 0 | latest register');
+    expect(glanceCells(doc)).toContain('callsigns | 0 | register of 2027-03-16');
     expect(fromTheRecord(doc)).toContain('records 0 callsigns');
   });
 
@@ -256,19 +321,46 @@ describe('build-v1-home-static - refusing to ship a stale baseline', { tags: ['u
     expect(() => buildV1HomeStatic(scaffold(holdingsJson(noRegister)))).toThrow(/register snapshot/);
   });
 
-  it('BuildV1HomeStatic_WhenTheNewestPublicationHasNoFullDate_FailsRatherThanKeepTheHandWrittenDate', () => {
-    const monthOnly = [...MARCH_2027, { lane: 'foi' as const, vintage: '2027-11', title: 'issuance events', classes: ['issuance-events'], rows: 12 }];
-    expect(() => buildV1HomeStatic(scaffold(holdingsJson(monthOnly)))).toThrow(/full date/);
+  it('BuildV1HomeStatic_WhenTheNewestDateCannotBeRead_FailsRatherThanKeepTheHandWrittenDate', () => {
+    // A month 13 passes a digits-only date pattern, but no month name exists
+    // for it, so the page would fall back to its hand-written date beside it.
+    const badDate = MARCH_2027.map(d => (d.vintage === '2027-03-16' ? { ...d, vintage: '2027-13-16' } : d));
+    expect(() => buildV1HomeStatic(scaffold(holdingsJson(badDate)))).toThrow(/2027-13-16/);
+  });
+
+  it('BuildV1HomeStatic_WhenTheManifestGivesTheHeldRunNoYears_FailsRatherThanKeepTheHandWrittenSpan', () => {
+    // The builder cannot write this (a register implies a dated publication),
+    // but the page's parser accepts it, and the page would then fall back to
+    // its hand-written 2013 start. A hand-edited or corrupted manifest reaches it.
+    const manifest = JSON.stringify({
+      count: 1, heldStartYear: null, latestYear: null, latestDateIso: '2027-03-16',
+      latestRegister: { vintage: '2027-03-16', records: 4323 }, publications: [], milestones: [],
+    });
+    expect(() => buildV1HomeStatic(scaffold(manifest))).toThrow(/no years/);
   });
 
   it('BuildV1HomeStatic_WhenThePageHasLostItsMarkers_FailsTheBuild', () => {
     const page = committedPage().split(HOME_REGION_START('from-the-record')).join('');
-    expect(() => buildV1HomeStatic(scaffold(holdingsJson(MARCH_2027), page))).toThrow(/exactly one "from-the-record" region/);
+    expect(() => buildV1HomeStatic(scaffold(holdingsJson(MARCH_2027), page))).toThrow(/"from-the-record"/);
   });
 
   it('BuildV1HomeStatic_WhenThePageCarriesARegionTwice_FailsTheBuild', () => {
     const page = committedPage().replace('</main>', `${HOME_REGION_START('at-a-glance')}\n${HOME_REGION_END}\n</main>`);
-    expect(() => buildV1HomeStatic(scaffold(holdingsJson(MARCH_2027), page))).toThrow(/exactly one "at-a-glance" region/);
+    expect(() => buildV1HomeStatic(scaffold(holdingsJson(MARCH_2027), page))).toThrow(/"at-a-glance"/);
+  });
+
+  it('BuildV1HomeStatic_WhenARegionLostItsClosingMarker_FailsNamingThatRegion', () => {
+    // Without the check, the at-a-glance region would run on to the
+    // from-the-record region's closing marker and swallow it.
+    const html = committedPage();
+    const at = html.indexOf(HOME_REGION_END);
+    const page = html.slice(0, at) + html.slice(at + HOME_REGION_END.length);
+    expect(() => buildV1HomeStatic(scaffold(holdingsJson(MARCH_2027), page))).toThrow(/"at-a-glance" region has no closing marker/);
+  });
+
+  it('BuildV1HomeStatic_WhenThePageCarriesAStrayClosingMarker_FailsTheBuild', () => {
+    const page = committedPage().replace('</main>', `${HOME_REGION_END}\n</main>`);
+    expect(() => buildV1HomeStatic(scaffold(holdingsJson(MARCH_2027), page))).toThrow(/closes no region/);
   });
 
   it('StampMarkedRegion_WhenTheRenderSpellsTheClosingMarker_RefusesRatherThanCorruptTheNextStamp', () => {
