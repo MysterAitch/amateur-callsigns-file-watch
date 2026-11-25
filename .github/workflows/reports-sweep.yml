@@ -102,6 +102,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
           COVERAGE_FILE: /tmp/coverage.md
         run: |
           set -euo pipefail
@@ -122,7 +123,11 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          branch="reports/run-${RUN_ID}"
+          # The attempt number is part of the name because re-running a
+          # failed run keeps its run id: without it the second attempt pushes
+          # a different commit to a branch that already exists, and is
+          # rejected.
+          branch="reports/run-${RUN_ID}-${RUN_ATTEMPT}"
           git checkout -b "$branch"
           git add reports/
           git commit -m "Report sweep: regenerate standing reports"
@@ -132,9 +137,25 @@ jobs:
             echo ""
             cat "$COVERAGE_FILE"
           } > "$RUNNER_TEMP/pr-body.md"
-          gh pr create --head "$branch" --base main \
+          if pr_url="$(gh pr create --head "$branch" --base main \
             --title "Report sweep: standing reports update" \
-            --body-file "$RUNNER_TEMP/pr-body.md"
+            --body-file "$RUNNER_TEMP/pr-body.md")"; then
+            echo "Opened $pr_url"
+          else
+            # A failed create is not proof that nothing was created (the
+            # incident is recorded in data-sweep.yml), so look before giving
+            # up: a pull request left without the dispatch below can never
+            # go green. Only this repository's own counts - a lookup by head
+            # name also returns a fork's pull request from a same-named
+            # branch.
+            pr_url="$(gh pr list --head "$branch" --state open --json url,headRefName,isCrossRepository \
+              --jq 'map(select((.isCrossRepository | not) and .headRefName == "'"$branch"'")) | .[0].url // empty')"
+            if [ -z "$pr_url" ]; then
+              echo "::error::Could not open a pull request for $branch."
+              exit 1
+            fi
+            echo "::warning::Creating the pull request for $branch reported a failure, but $pr_url exists; continuing with it."
+          fi
           # The pull_request-triggered CI run for a bot-authored PR parks in
           # action_required (contributor-approval policy). Dispatch CI onto
           # the branch explicitly: workflow_dispatch is exempt from that
