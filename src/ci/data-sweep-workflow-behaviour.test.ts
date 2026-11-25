@@ -192,8 +192,13 @@ describe.skipIf(!RUNS_HERE)('data sweep step, executed', { tags: ['unit'] }, () 
     expect(calls()).toEqual(['pr list', 'pr create', 'pr merge', 'pr comment']);
   });
 
-  it('DataBranch_WhenItTouchesANonDataPath_IsOpenedForReviewAndNeverAutoMerged', () => {
-    pushDataBranch('2026-07-06', 'src/smuggled.ts');
+  // The second path is what the Special Contest Calls sweep pushes, to a
+  // branch this sweep also iterates because its name starts with data/.
+  it.each([
+    ['2026-07-06', 'src/smuggled.ts'],
+    ['scc-2026-11-01', 'reference-data/rsgb-special-contest-calls.csv'],
+  ])('DataBranch_WhenItTouchesANonDataPath_IsOpenedForReviewAndNeverAutoMerged (data/%s, %s)', (key, nonDataPath) => {
+    pushDataBranch(key, nonDataPath);
 
     const run = runSweep();
 
