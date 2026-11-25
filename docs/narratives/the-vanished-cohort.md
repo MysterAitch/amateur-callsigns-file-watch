@@ -459,8 +459,8 @@ reproduce the same counts.
 ## Provenance and related threads
 
 - The finding, filed directly from the data-coherency sweep, with the
-  original cohort count and the note that it reads as "historical note
-  rather than a live defect": **issue #803**
+  original cohort count and its own description of itself as a
+  "Historical/narrative note rather than a live defect": **issue #803**
   ([thread](https://github.com/MysterAitch/amateur-callsigns-file-watch/issues/803)).
 - The wider sweep this finding was one of four results from (alongside
   #800, #801, #802): **issue #804**
