@@ -40,7 +40,7 @@
 <main data-page="callsign-v1">
   <div class="wrap">
     <div id="breadcrumb">
-      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span class="arw">→</span><a href="callsign.html">Look up</a><span class="arw">→</span><b>Look up</b></nav>
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span class="arw">→</span><b>Look up</b></nav>
     </div>
 
     <form class="lookup surface" role="search" aria-label="Look up a callsign" action="callsign.html" method="get">
@@ -54,7 +54,12 @@
     <p class="status-line" id="lookup-status" role="status" aria-live="polite"></p>
     <p class="alert" id="lookup-alert" role="alert" hidden></p>
 
+    <!-- The page heading lives inside #sections: a lookup replaces it with the
+         callsign's own heading, so the page has exactly one h1 in every state. -->
     <div id="sections">
+      <header class="head">
+        <h1>callsign-record<span class="path"> / look up</span></h1>
+      </header>
       <p class="note muted">Enter a callsign above, or open a link like <a class="cs" href="callsign.html?c=M7TEE">callsign.html?c=M7TEE</a>, to resolve it in-browser.</p>
     </div>
   </div>

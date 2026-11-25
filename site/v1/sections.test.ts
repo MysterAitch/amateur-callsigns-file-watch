@@ -64,6 +64,9 @@ function cm(over: Partial<Omit<CallsignModel, 'dial'>> & { dial?: Partial<Callsi
     key: 'M7TEE', cleaned: 'M7TEE', found: true, viaRendering: false,
     latest: null, seen: null, anatomy: null, twin: null,
     carriedOrigin: 'neutral', series: null, seriesIntro: null, seriesIntroSource: null,
+    // A status from the newest publication held, so the default reads as current;
+    // the older-publication cases live in callsign-lookup.test.ts.
+    currency: { asOf: '2026-06-23', newest: '2026-06-23', inNewest: true, statusFromNewest: true },
     ...rest,
     dial: { ...dialDefaults, ...(dial ?? {}) },
   };

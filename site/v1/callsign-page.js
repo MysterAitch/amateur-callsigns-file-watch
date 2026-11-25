@@ -21,7 +21,7 @@
 
 import { renderSiteBar, renderBreadcrumb, renderFooter, mountInto, SHARED_MODULE_BASE } from './shell.js';
 import { V1_COPY } from './copy.js';
-import { buildCallsignModel, renderCallsignSections } from './callsign-sections.js';
+import { buildCallsignModel, renderCallsignSections, describeLookupInput, callsignPageTitle, boundedQuery } from './callsign-sections.js';
 import { wireTermPopovers } from './glossary.js';
 
 // The prefix-sharded static data, deployed at the root beside this page.
@@ -61,32 +61,42 @@ export function preserveLookupInput(doc, typed) {
   if (value !== '') input.value = value;
 }
 
+/**
+ * The breadcrumb trail: "Home → Look up" until something has been looked up,
+ * then the looked-up key (bounded, as the heading shows it) as the last crumb,
+ * so the trail, the heading, and the status line name the same string.
+ * @param {string | null} lookedUp  null before a lookup, or when nothing was entered
+ * @returns {{ label: string, href?: string }[]}
+ */
+export function lookupBreadcrumb(lookedUp) {
+  const home = { label: V1_COPY.journeys.home, href: 'index.html' };
+  if (lookedUp === null || lookedUp === '') return [home, { label: V1_COPY.journeys.lookup }];
+  return [home, { label: V1_COPY.journeys.lookup, href: 'callsign.html' }, { label: boundedQuery(lookedUp).text }];
+}
+
 async function initCallsignPageV1() {
   // Chrome first, so the page frames itself even if the data fetch fails. The
   // dated-fact chip reads the single build-injected source (issues #965/#966),
   // so this page re-authors no figure.
   mountInto('sitebar', renderSiteBar('lookup'));
+  // The page's own title, as served; a lookup prefixes the callsign to it.
+  const baseTitle = document.title;
   const typed = paramCallsign();
   // Retain the entered callsign in the search box up front, so no resolution
   // outcome below (found, not-found, invalid or fetch failure) can leave the
   // reader with an emptied field (issue #921).
   preserveLookupInput(document, typed);
-  mountInto('breadcrumb', renderBreadcrumb([
-    { label: V1_COPY.journeys.home, href: 'index.html' },
-    { label: V1_COPY.journeys.lookup, href: 'callsign.html' },
-    { label: typed !== '' ? typed.toUpperCase() : 'Look up' },
-  ]));
+  mountInto('breadcrumb', renderBreadcrumb(lookupBreadcrumb(null)));
   mountInto('sitefooter', renderFooter());
 
   const root = document.getElementById('sections');
   const status = document.getElementById('lookup-status');
   if (root === null) return;
 
-  if (typed.trim() === '') {
-    if (status !== null) status.textContent = 'Enter a callsign above to resolve it in-browser.';
-    return;
-  }
-  if (status !== null) status.textContent = `Resolving ${typed}…`;
+  // An empty query keeps the page's static instruction; nothing is repeated in
+  // the status line.
+  if (typed.trim() === '') return;
+  if (status !== null) status.textContent = `Resolving ${boundedQuery(typed.trim()).text}…`;
 
   try {
     // The shared pure modules, dynamically imported from the site root. A
@@ -108,9 +118,25 @@ async function initCallsignPageV1() {
     const { canonicalCallsign } = sharedQuery;
     const { cleanCallsign } = sharedLedger;
 
+    // What was typed against what will be looked up: the heading, breadcrumb,
+    // status line, and tab title all name the looked-up key, and the page says
+    // what the cleaning left out rather than dropping it silently.
+    const input = describeLookupInput(typed, cleanCallsign);
+    const cleaned = input.lookedUp;
+    document.title = callsignPageTitle(cleaned !== '' ? cleaned : input.entered, baseTitle);
+    mountInto('breadcrumb', renderBreadcrumb(lookupBreadcrumb(cleaned !== '' ? cleaned : input.entered)));
+
     // Instant axis first: manifest + the one shard the prefix picks.
-    const cleaned = cleanCallsign(typed);
     const manifest = /** @type {import('../callsign.js').ShardManifest} */ ((await fetchDataJson('datasets.json')).json);
+    if (cleaned === '') {
+      // Nothing survives the cleaning rule, so there is no key to look up and no
+      // shard to ask: say so rather than report a miss.
+      const model = buildCallsignModel({ res: { key: null, record: null, cleaned, typed, input }, manifest, eventRecord: null, eventMeta: null, latestSummary, seenSummary, anatomyFigureParts, twinConflict, stripModel });
+      root.textContent = '';
+      renderCallsignSections(/** @type {HTMLElement} */ (root), model);
+      if (status !== null) status.textContent = '';
+      return;
+    }
     const shardNames = new Set(manifest.shards);
     const shardName = shardNameFor(cleaned, shardNames);
     const shard = /** @type {{ callsigns: Record<string, import('../callsign.js').CallsignRecord> }} */ ((await fetchDataJson(`${shardName}.json`)).json);
@@ -130,7 +156,7 @@ async function initCallsignPageV1() {
         if (Object.hasOwn(coreShard.callsigns, core)) { key = core; record = coreShard.callsigns[core]; viaRendering = true; }
       }
     }
-    const res = { key, record, cleaned, typed, viaRendering };
+    const res = { key, record, cleaned, typed, viaRendering, input };
 
     // Event axis behind it: meta + the event shard the same prefix picks. A
     // failure here degrades the dial to its assertion axis; it never blocks the
@@ -154,6 +180,11 @@ async function initCallsignPageV1() {
     const model = buildCallsignModel({ res, manifest, eventRecord, eventMeta, latestSummary, seenSummary, anatomyFigureParts, twinConflict, stripModel });
     root.textContent = '';
     renderCallsignSections(/** @type {HTMLElement} */ (root), model);
+    if (model.found) {
+      // A regional rendering resolves to its core record: name the record shown.
+      document.title = callsignPageTitle(model.key, baseTitle);
+      mountInto('breadcrumb', renderBreadcrumb(lookupBreadcrumb(model.key)));
+    }
     // Enhance the coined-term and provenance-chip popovers into a well-mannered
     // set (issue #921, B1); with the script off they remain plain <details>
     // disclosures that still open their definitions.
@@ -161,7 +192,7 @@ async function initCallsignPageV1() {
     if (status !== null) {
       status.textContent = model.found
         ? `Answered ${model.key} from one shard (${shardName}.json) – no database involved.`
-        : `No record found for ${typed} – checked shard ${shardName}.json.`;
+        : `No record found for ${boundedQuery(cleaned).text} – checked shard ${shardName}.json.`;
     }
   } catch (err) {
     if (status !== null) status.textContent = '';
