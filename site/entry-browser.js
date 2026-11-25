@@ -146,10 +146,14 @@ function renderRawCallsign(raw) {
 // The cleaned (artefact-stripped join key) column: this IS the register's own
 // callsign, so - unlike the raw column above - it links to its canonical
 // per-callsign page (callsign.html, issue #594), the same shared pill every
-// other results surface uses.
-/** @param {string} cleaned */
-function renderCleanedCallsign(cleaned) {
-  return callsignPillLink(el, cleaned);
+// other results surface uses. The href is anchored at the site root, since the
+// entry pages this runs on are nested below it (see callsignPillLink).
+/**
+ * @param {string} cleaned
+ * @param {string} siteRoot
+ */
+function renderCleanedCallsign(cleaned, siteRoot) {
+  return callsignPillLink(el, cleaned, {}, siteRoot);
 }
 /** @param {string} raw */
 function describeDiff(raw) {
@@ -172,9 +176,9 @@ if (bootSection !== null) enhance(bootSection);
 // In the browser it runs with the module's memoised openCombined.
 /**
  * @param {HTMLElement} section
- * @param {{ openCombined?: () => Promise<DbWorker> }} [options]
+ * @param {{ openCombined?: () => Promise<DbWorker>, siteRoot?: string }} [options]
  */
-export function enhance(section, { openCombined: openCombinedFn = openCombined } = {}) {
+export function enhance(section, { openCombined: openCombinedFn = openCombined, siteRoot = new URL('./', import.meta.url).href } = {}) {
   // Guaranteed present: this module only ever enhances a `.browser[data-dataset]`
   // section (the module's own bootstrap selector, or the test scaffold that
   // mirrors it), and the server-rendered markup always stamps the attribute.
@@ -445,7 +449,7 @@ export function enhance(section, { openCombined: openCombinedFn = openCombined }
       ? el('tbody', {}, [el('tr', {}, [el('td', { colspan: String(headers.length), class: 'browser-status', text: 'No matching rows — adjust or clear the filters above.' })])])
       : el('tbody', {}, rows.map(r => el('tr', {}, headers.map(h => {
         if (h === 'callsign') return el('td', {}, [renderRawCallsign(r.callsign)]);
-        if (h === 'cleaned') return el('td', {}, [renderCleanedCallsign(r.cleaned)]);
+        if (h === 'cleaned') return el('td', {}, [renderCleanedCallsign(r.cleaned, siteRoot)]);
         if (h === 'difference') return el('td', { class: 'diffnote', text: describeDiff(r.callsign) });
         // A 'status' or licence-class/product column (#553/#625) routes
         // through the shared field wrappers, mirroring the generated pages'
