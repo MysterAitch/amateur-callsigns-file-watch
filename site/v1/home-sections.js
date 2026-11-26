@@ -594,7 +594,7 @@ function mountLookupHero(host) {
 /** @param {HTMLElement} host @param {HomeModel} model */
 function mountAtAGlance(host, model) {
   const surface = el('section', 'surface');
-  surface.appendChild(el('div', 'lbl', V1_COPY.home.atAGlanceLabel));
+  surface.appendChild(el('h2', 'lbl', V1_COPY.home.atAGlanceLabel));
   const grid = el('div', 'readout');
   for (const cell of model.glance) {
     const c = el('div', 'cell');
@@ -909,7 +909,7 @@ function mountKindLegend(dial, pips, S) {
 /** @param {HTMLElement} host */
 function mountWaysIn(host) {
   const surface = el('section', 'surface');
-  surface.appendChild(el('div', 'lbl', V1_COPY.home.waysInLabel));
+  surface.appendChild(el('h2', 'lbl', V1_COPY.home.waysInLabel));
   const grid = el('div', 'modules');
   // Only the journeys the v1 surface serves. Unmigrated destinations do not
   // appear here — nothing on the surface points off it.
@@ -935,7 +935,7 @@ function mountWaysIn(host) {
 /** @param {HTMLElement} host @param {HomeModel} model */
 function mountFromTheRecord(host, model) {
   const surface = el('section', 'surface');
-  surface.appendChild(el('div', 'lbl', V1_COPY.home.fromTheRecordLabel));
+  surface.appendChild(el('h2', 'lbl', V1_COPY.home.fromTheRecordLabel));
   const watch = el('div', 'watch');
   const bar = el('div', 'bar');
   const chip = el('span', 'chip');

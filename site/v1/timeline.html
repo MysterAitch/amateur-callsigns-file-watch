@@ -5,27 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Timeline · callsign-record</title>
+<meta name="description" content="UK amateur licensing activity along event time: how many dated events of each kind the archived publications place in each year, with a running total.">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="shell.css">
 <script type="module" src="timeline.js"></script>
-<style>
-  /* Page-local: the histograms FIT their panel at every width rather than
-     scrolling. A bar with a minimum width and a fixed gap made a 197-year chart
-     983 px wide, so at 375 px the visible 293 px showed the earliest, emptiest
-     years and the populated ones sat off-screen behind an unannounced,
-     keyboard-unreachable scroller. Bars now shrink to share the track, and the
-     year axis (rendered with the chart) names where they are. These override
-     the shared histogram rules in shell.css. */
-  .hx-bars-wrap{overflow-x:visible}
-  .hx-bars{min-width:0;gap:1px}
-  .hx-bar{min-width:0}
-  @media (max-width:40rem){.hx-bars{gap:0}}
-  .hx-axis{position:relative;height:1.1rem;margin-top:.2rem;font-family:var(--mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-  .hx-axis span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
-  .hx-axis .hx-axis-start{left:0;transform:none}
-  .hx-axis .hx-axis-end{right:0;transform:none}
-  .hx-summary,.hx-beyond{margin:.35rem 0 0;font-size:.84rem}
-</style>
 </head>
 <!-- The static markup below is the JavaScript-off baseline, and it is the whole
      substance: the header, nav and footer read with no script, and the per-year
@@ -36,6 +19,8 @@
      that assert it. The page's script adds the year slider, driven by figures
      embedded in this same HTML rather than a second request. -->
 <body>
+
+<a class="skip" href="#main">Skip to content</a>
 
 <div id="sitebar">
   <header class="sitebar">
@@ -58,7 +43,7 @@
   </header>
 </div>
 
-<main data-page="timeline">
+<main id="main" tabindex="-1" data-page="timeline">
   <div class="wrap">
     <div id="breadcrumb">
       <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span class="arw">→</span><b>Timeline</b></nav>

@@ -48,7 +48,7 @@ describe('brokenSkipTargets (the checker itself, on constructed pages)', { tags:
 
 describe('Skip links on the hand-authored pages', { tags: ['unit'] }, () => {
   // The hand-authored pages at the site root (the older /v0/ surface); the v1
-  // tree is owned and checked elsewhere.
+  // tree's skip links are checked in site/v1/shell-structure.test.ts.
   const SITE = 'site';
   const pages = fs.readdirSync(SITE).filter(f => f.endsWith('.html'));
 

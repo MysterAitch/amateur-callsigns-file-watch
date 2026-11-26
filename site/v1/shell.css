@@ -24,6 +24,19 @@ a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible{
 .mono{font-family:var(--mono)}
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0 0 0 0);white-space:nowrap;border:0}
+/* Skip link: the first stop in tab order on every page, so a keyboard user is
+   not made to walk the journey nav each time. Off-screen until focused (on any
+   focus, not only :focus-visible, so it is never focused unseen), then shown
+   over the header bar. It sits outside the header's mount host so the script
+   that re-mounts the header cannot remove it. */
+.skip{position:absolute;left:.5rem;top:-10rem;z-index:20;padding:.5rem .8rem;background:var(--panel);
+  color:var(--signal-strong);border:1px solid var(--signal-dim);border-radius:2px;font-family:var(--mono);font-size:14px}
+.skip:focus{top:.5rem;outline:2px solid var(--signal);outline-offset:2px}
+/* The skip link moves focus to main (tabindex="-1"), so the next Tab starts
+   inside the content in every browser rather than wherever that browser keeps
+   its sequential-navigation starting point. main is not a control, so it is not
+   outlined. */
+main[tabindex="-1"]:focus{outline:none}
 
 /* ---- full-width WHITE header + footer bars (the v1 chrome) ---------------
    These replace the mockups' in-flow .topbar/footer: a white bar spanning the
@@ -78,9 +91,16 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .surface.evidence{background:var(--bg-2);border-color:var(--line-2)}
 .surface.evidence>.lbl:first-child{color:var(--ink-2)}
 
-/* ---- section label ---- */
+/* ---- section label ----
+   A section's title is a heading, so a heading list gives an outline of the
+   page: <h2 class="lbl">. Where the label also carries an interactive chip (a
+   glossary "?" cue), that cannot sit inside a heading, which takes phrasing
+   content only, so the row is <div class="lbl"> holding the <h2> beside the
+   chip. Both forms read identically; site/v1/shell-structure.test.ts holds every
+   page to one or the other. */
 .lbl{display:flex;align-items:center;gap:.7rem;margin:2.2rem 0 .8rem;font-family:var(--mono);
-  font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  font-size:11px;font-weight:400;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.lbl>h2{margin:0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit}
 .lbl:first-child{margin-top:.15rem}
 .lbl .ax{color:var(--signal-strong);border:1px solid var(--signal-dim);background:var(--signal-tint);
   border-radius:2px;padding:.1rem .4rem;font-size:10px;letter-spacing:.06em}
@@ -676,12 +696,23 @@ details.fold .b p:last-child{margin-bottom:0}
 .hx-chart figcaption{display:flex;align-items:baseline;justify-content:space-between;gap:.7rem;
   font-weight:600;font-size:.92rem;margin:0 0 .4rem}
 .hx-chart .hx-total{font-family:var(--mono);font-size:11px;font-weight:400;color:var(--muted)}
-.hx-bars-wrap{overflow-x:auto}
-.hx-bars{display:flex;align-items:flex-end;gap:2px;height:150px;min-width:min(100%,34rem);
+/* The histograms FIT their panel at every width rather than scrolling. A bar
+   with a minimum width and a fixed gap made a 197-year chart 983 px wide, so at
+   375 px the visible 293 px showed the earliest, emptiest years and the
+   populated ones sat off-screen behind an unannounced, keyboard-unreachable
+   scroller. Bars shrink to share the track, and the year axis beneath names
+   where they are. */
+.hx-bars{display:flex;align-items:flex-end;gap:1px;height:150px;min-width:0;
   border-bottom:1px solid var(--line);padding-top:.3rem}
-.hx-bar{flex:1 1 0;min-width:3px;height:100%;display:flex;align-items:flex-end}
+@media (max-width:40rem){.hx-bars{gap:0}}
+.hx-bar{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end}
 .hx-bar-fill{width:100%;background:var(--signal);border-radius:1px 1px 0 0;min-height:0}
 .hx-bar.zero .hx-bar-fill{background:var(--line-2)}
+.hx-axis{position:relative;height:1.1rem;margin-top:.2rem;font-family:var(--mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hx-axis span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.hx-axis .hx-axis-start{left:0;transform:none}
+.hx-axis .hx-axis-end{right:0;transform:none}
+.hx-summary,.hx-beyond{margin:.35rem 0 0;font-size:.84rem}
 .hx-data{margin-top:.4rem}
 .hx-data>summary{cursor:pointer;color:var(--signal);font-size:.84rem}
 .hx-data table{margin-top:.4rem;max-width:24rem}

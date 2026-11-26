@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Look up a callsign · callsign-record</title>
+<meta name="description" content="Look up one UK amateur callsign: its latest held register state, its parts, and every sighting across the archived publications, with sources.">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="shell.css">
 <script type="module" src="callsign-page.js"></script>
@@ -15,6 +16,8 @@
      callsign-page.js resolves the value in-browser and mounts the config-array
      sections. -->
 <body>
+
+<a class="skip" href="#main">Skip to content</a>
 
 <div id="sitebar">
   <header class="sitebar">
@@ -37,7 +40,7 @@
   </header>
 </div>
 
-<main data-page="callsign-v1">
+<main id="main" tabindex="-1" data-page="callsign-v1">
   <div class="wrap">
     <div id="breadcrumb">
       <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span class="arw">→</span><b>Look up</b></nav>

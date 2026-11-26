@@ -41,16 +41,10 @@ const el = (tag, cls, txt) => {
   return node;
 };
 
-// A section's title: styled as the shell's small label, exposed to assistive
-// technology as a level-two heading beneath the callsign's level-one heading, so
-// a heading list gives an outline of the page.
+// A section's title, a level-two heading beneath the callsign's level-one
+// heading (the shell's section-label rule, in shell.css).
 /** @param {string} text @returns {HTMLElement} */
-const sectionLabel = (text) => {
-  const lbl = el('div', 'lbl', text);
-  lbl.setAttribute('role', 'heading');
-  lbl.setAttribute('aria-level', '2');
-  return lbl;
-};
+const sectionLabel = (text) => el('h2', 'lbl', text);
 
 /** @param {string} href @param {string} label @param {string | null} [cls] */
 const link = (href, label, cls = null) => {
