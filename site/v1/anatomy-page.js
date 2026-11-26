@@ -39,6 +39,37 @@ export function enhanceTermLinks(root) {
   }
 }
 
+/**
+ * Make each table box a keyboard stop only while it actually scrolls. At phone
+ * width some tables are wider than their panel and their box scrolls, which a
+ * keyboard user can only do from a focused box; at other widths the same box
+ * fits, and a tab stop there would do nothing. A scrolling box becomes a region
+ * named by its own caption (aria-labelledby, so the caption is not read twice);
+ * a box that fits loses all three attributes. Call again when the width
+ * changes.
+ * @param {ParentNode} root
+ */
+export function markScrollingTables(root) {
+  let n = 0;
+  for (const box of root.querySelectorAll('main .overflow')) {
+    if (!(box instanceof HTMLElement)) continue;
+    n += 1;
+    const caption = box.querySelector('caption');
+    if (box.scrollWidth > box.clientWidth + 1) {
+      box.setAttribute('tabindex', '0');
+      box.setAttribute('role', 'region');
+      if (caption !== null) {
+        if (caption.id === '') caption.id = `table-caption-${n}`;
+        box.setAttribute('aria-labelledby', caption.id);
+      }
+    } else {
+      box.removeAttribute('tabindex');
+      box.removeAttribute('role');
+      box.removeAttribute('aria-labelledby');
+    }
+  }
+}
+
 if (typeof document !== 'undefined' && document.querySelector('main[data-page="anatomy"]') !== null) {
   mountInto('sitebar', renderSiteBar('anatomy'));
   mountInto('breadcrumb', renderBreadcrumb([
@@ -48,4 +79,6 @@ if (typeof document !== 'undefined' && document.querySelector('main[data-page="a
   mountInto('sitefooter', renderFooter());
   enhanceTermLinks(document);
   wireTermPopovers(document);
+  markScrollingTables(document);
+  window.addEventListener('resize', () => { markScrollingTables(document); });
 }

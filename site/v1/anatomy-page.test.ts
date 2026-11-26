@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
-import { enhanceTermLinks } from './anatomy-page.js';
+import { enhanceTermLinks, markScrollingTables } from './anatomy-page.js';
 import { glossaryAnchorId } from './glossary.js';
 import { V1_COPY } from './copy.js';
 
@@ -31,9 +31,93 @@ function mountMain(): void {
   if (main !== null) document.body.appendChild(document.importNode(main, true));
 }
 
+// jsdom lays nothing out, so a box's widths are given: the first box under
+// <main> takes the first pair, and so on; the rest are left fitting (0/0).
+function boxesWithWidths(widths: Array<[number, number]>): HTMLElement[] {
+  const boxes = [...document.querySelectorAll<HTMLElement>('main .overflow')];
+  widths.forEach(([scroll, client], i) => {
+    const box = boxes[i];
+    if (box === undefined) throw new Error(`no table box ${i}`);
+    Object.defineProperty(box, 'scrollWidth', { configurable: true, value: scroll });
+    Object.defineProperty(box, 'clientWidth', { configurable: true, value: client });
+  });
+  return boxes;
+}
+
 describe('v1 anatomy page — static baseline (issue #931)', { tags: ['unit'] }, () => {
   it('AnatomyPage_RobotsMeta_WithholdsFromCrawlersPreLaunch', () => {
     expect(ANATOMY_HTML).toContain('<meta name="robots" content="noindex">');
+  });
+
+  it('AnatomyPage_Sources_CarryNoUnfinishedPlaceholder', () => {
+    // A note that something is still "to be confirmed" reads as a page left
+    // half-written; a source line states what it links to, finished.
+    const sources = norm(parse().querySelector('main')?.textContent);
+    expect(sources).not.toMatch(/to be confirmed|\bTBC\b|\bTODO\b/i);
+  });
+
+  it('AnatomyPage_EveryTableBox_ScrollsRatherThanSpillingPastItsPanel', () => {
+    // At 375 px the temporary-RSL table is 331 px wide in a 293 px box. The
+    // overflow rule once applied only inside the diagram's figure, so the
+    // hand-authored boxes spilled. This reads the page's own stylesheet through
+    // jsdom's cascade: layout cannot be measured in jsdom, but which rule
+    // reaches each box can.
+    const doc = new DOMParser().parseFromString(ANATOMY_HTML, 'text/html');
+    document.documentElement.replaceChildren(...[...doc.documentElement.childNodes].map((n) => document.importNode(n, true)));
+    const boxes = [...document.querySelectorAll<HTMLElement>('main .overflow')];
+    expect(boxes.length).toBe(4);
+    expect(boxes.map((b) => getComputedStyle(b).overflowX)).toEqual(['auto', 'auto', 'auto', 'auto']);
+  });
+
+  it('AnatomyPage_TableBoxesAsServed_AreNotTabStops', () => {
+    // A box that never scrolls would be a tab stop that does nothing; whether
+    // a box scrolls depends on the width, so the script decides (below).
+    const boxes = [...parse().querySelectorAll('main .overflow')];
+    expect(boxes.filter((b) => b.hasAttribute('tabindex') || b.hasAttribute('aria-label'))).toEqual([]);
+  });
+
+  it('AnatomyTables_WhenABoxOverflows_BecomesAFocusableRegionNamedByItsCaption', () => {
+    mountMain();
+    const [box] = boxesWithWidths([[331, 293]]);
+    markScrollingTables(document);
+    expect(box.getAttribute('tabindex')).toBe('0');
+    expect(box.getAttribute('role')).toBe('region');
+    const caption = box.querySelector('caption');
+    expect(caption?.id).not.toBe('');
+    expect(box.getAttribute('aria-labelledby')).toBe(caption?.id);
+    expect(box.hasAttribute('aria-label')).toBe(false);
+  });
+
+  it('AnatomyTables_WhenABoxFits_IsNotATabStop', () => {
+    mountMain();
+    const [box] = boxesWithWidths([[293, 293]]);
+    markScrollingTables(document);
+    expect(box.hasAttribute('tabindex')).toBe(false);
+    expect(box.hasAttribute('role')).toBe(false);
+  });
+
+  it('AnatomyTables_WhenABoxStopsOverflowing_StopsBeingATabStop', () => {
+    // A window widened past the table's width.
+    mountMain();
+    const [box] = boxesWithWidths([[331, 293]]);
+    markScrollingTables(document);
+    Object.defineProperty(box, 'clientWidth', { configurable: true, value: 400 });
+    Object.defineProperty(box, 'scrollWidth', { configurable: true, value: 331 });
+    markScrollingTables(document);
+    expect(box.hasAttribute('tabindex')).toBe(false);
+    expect(box.hasAttribute('role')).toBe(false);
+    expect(box.hasAttribute('aria-labelledby')).toBe(false);
+  });
+
+  it('AnatomyPage_EachSectionLabel_IsAHeadingOneLevelBelowThePageTitle', () => {
+    // A heading-list reader gets an outline of a long page rather than its
+    // title alone.
+    const main = parse().querySelector('main');
+    const labels = [...(main?.querySelectorAll('.lbl') ?? [])];
+    expect(labels.length).toBe(9);
+    expect(labels.map((l) => l.tagName)).toEqual(labels.map(() => 'H2'));
+    const levels = [...(main?.querySelectorAll('h1, h2, h3, h4') ?? [])].map((h) => Number(h.tagName[1]));
+    expect(levels.filter((level, i) => i > 0 && level > levels[i - 1] + 1)).toEqual([]);
   });
 
   it('AnatomyPage_JourneyNav_MarksAnatomyAsTheCurrentPage', () => {
