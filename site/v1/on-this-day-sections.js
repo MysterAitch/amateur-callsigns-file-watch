@@ -117,9 +117,10 @@ function entryLine(entry, data, legend) {
   evt.appendChild(ttl);
 
   const body = el('p', 'dsc');
+  // Each callsign leads to its own lookup page, the record behind the entry.
   entry.callsigns.forEach((cs, i) => {
     if (i > 0) body.append(' ');
-    body.appendChild(el('span', 'cs', cs));
+    body.appendChild(link(`callsign.html?c=${encodeURIComponent(cs)}`, cs, 'cs'));
   });
   if (entry.callsigns.length > 1) body.append(` (${fill(copy.tie, { count: entry.callsigns.length })})`);
   const what = entry.event === 'first-start' ? 'a start' : 'a cancellation';

@@ -45,6 +45,17 @@ function renderIntoSections(): HTMLElement {
 describe('v1 glossary page sections', { tags: ['ui'] }, () => {
   beforeEach(() => { document.body.innerHTML = ''; });
 
+  it('GlossaryPage_EachGroupLabel_IsAHeadingOneLevelBelowThePageTitle', () => {
+    // A heading-list reader gets an outline of the groups, both as served and
+    // after the script re-renders them.
+    const staticDoc = new DOMParser().parseFromString(fs.readFileSync('site/v1/glossary.html', 'utf8'), 'text/html');
+    for (const scope of [staticDoc.querySelector('#sections'), renderIntoSections()]) {
+      const labels = [...(scope?.querySelectorAll('.lbl') ?? [])];
+      expect(labels.length).toBe(GLOSSARY_SECTION_ORDER.length);
+      expect(labels.map((l) => l.tagName)).toEqual(labels.map(() => 'H2'));
+    }
+  });
+
   it('GlossarySectionOrder_EveryId_HasARegistryEntryAndViceVersa', () => {
     expect(Object.keys(GLOSSARY_SECTION_REGISTRY).sort()).toEqual([...GLOSSARY_SECTION_ORDER].sort());
   });
