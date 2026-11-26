@@ -411,7 +411,9 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .tracklab.event .sw{background:var(--signal)}
 .tracklab.assert .sw{background:var(--line-2)}
 .tracklab b{font-weight:700;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px}
-.tracklab.assert{margin-top:.15rem}
+/* Room for the "?" cue's 24px target to stay clear of the scale above it,
+   which scrolls and takes focus on a phone: at .15rem the two overlapped. */
+.tracklab.assert{margin-top:.35rem}
 .dial-ctl{display:flex;gap:.4rem;flex-wrap:wrap;margin:.35rem 0 .2rem}
 .dial-ctl button{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;cursor:pointer;border:1px solid var(--line-2);
   background:var(--panel);color:var(--ink-2);padding:.28rem .55rem;border-radius:2px}
@@ -600,13 +602,33 @@ td.date,.num{font-family:var(--mono);white-space:nowrap;color:var(--ink-2)}
 .pop .pl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--signal);display:block;margin-bottom:.25rem}
 /* Standalone "?" cue term (issue #921, B1): used where the surrounding prose
    already writes the term out and only a click-through to the fuller definition
-   is wanted (e.g. the dial track labels). A small ringed question mark. */
+   is wanted (e.g. the dial track labels). A small ringed question mark.
+   The ring is drawn at its small size, but the target is a 24px square around
+   it (WCAG 2.2 target size, minimum): the ringed glyph alone measured 9.5 by
+   9.5px. Negative margins keep the square from taking any more room in the
+   line than the ring did, so no line deepens or rewraps. The square reaches
+   at most 4px back, into the space before the cue, and the rest of its width
+   lies after the ring: centred on the ring, it covered the whole last letter
+   before the cue, so a click there opened the definition instead of selecting
+   the text. A cue ends its line or its chip wherever it is used, so what lies
+   after the ring is empty. */
 .term.cue{display:inline-block;vertical-align:baseline}
-.term.cue>summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;
-  width:1.05em;height:1.05em;border:1px solid var(--signal-dim);border-radius:50%;border-bottom:1px solid var(--signal-dim);
-  font-family:var(--mono);font-size:.82em;line-height:1;color:var(--signal-strong);background:var(--signal-tint);cursor:help}
+.term.cue>summary{list-style:none;position:relative;z-index:0;display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;margin:calc((1.05em - 24px) / 2) calc(1.05em - 20px) calc((1.05em - 24px) / 2) -4px;border:0;
+  padding:0 calc(20px - 1.05em) 0 4px;
+  font-family:var(--mono);font-size:.82em;line-height:1;color:var(--signal-strong);background:none;cursor:help}
+.term.cue>summary::before{content:"";box-sizing:border-box;position:absolute;left:calc(4px + 1.05em / 2);top:50%;z-index:-1;width:1.05em;height:1.05em;
+  transform:translate(-50%,-50%);border:1px solid var(--signal-dim);border-radius:50%;background:var(--signal-tint)}
+/* In an axis chip the cue follows the chip's word with no space between, so the
+   square does not reach back at all: it starts at the ring and lies wholly
+   after it. */
+.ax>.term.cue>summary{margin-left:0;margin-right:calc(1.05em - 24px);padding:0 calc(24px - 1.05em) 0 0}
+.ax>.term.cue>summary::before{left:calc(1.05em / 2)}
+/* An axis chip never breaks inside itself: at 375 wide "event-time ?" broke
+   after the hyphen, leaving the cue's target reaching into "event-" above it. */
+.lbl .ax{white-space:nowrap}
 .term.cue>summary::-webkit-details-marker{display:none}
-.term.cue>summary:hover{background:#c7e6ea;border-color:var(--signal)}
+.term.cue>summary:hover::before{background:#c7e6ea;border-color:var(--signal)}
 .term.cue>summary:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 /* Provenance-chip term (issue #921, B1): the .tb chip itself is the affordance,
    so the summary carries no dashed underline — only a help cursor and a small
