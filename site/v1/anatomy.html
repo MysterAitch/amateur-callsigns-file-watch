@@ -23,8 +23,8 @@
   .anatomy-figure figcaption{color:var(--muted);font-size:.85rem;line-height:1.45;margin-bottom:.6rem}
   .anatomy-figure svg{width:100%;height:auto;max-width:34rem;display:block;margin:.5rem auto 1.1rem}
   /* Every table box scrolls rather than spilling past its panel: at 375 px the
-     temporary-RSL table is 331 px wide in a 293 px box. The hand-authored boxes
-     carry tabindex and a region label so the scroll is keyboard-reachable. */
+     temporary-RSL table is 331 px wide in a 293 px box. anatomy-page.js makes
+     a box a keyboard stop only while it actually scrolls. */
   main[data-page="anatomy"] .overflow{overflow-x:auto}
   main[data-page="anatomy"] .overflow:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
   /* Section labels are headings for the outline, styled as the shared label. */
@@ -151,7 +151,7 @@
     <section class="surface">
       <p>Where an <abbr title="Regional Secondary Locator">RSL</abbr> is used it must be one of the letters below. There are <strong>two sets</strong>: a letter available to all licences, and – the point most often missed – an <strong>additional letter available only to a Full (Club) Licence</strong>.
         <span class="src"><em>Authoritative</em> – Ofcom OFW611, cl. 24 (pp 7–8).</span></p>
-      <div class="overflow" tabindex="0" role="region" aria-label="Regional Secondary Locator letters (Ofcom OFW611, cl. 24).">
+      <div class="overflow">
       <table>
         <caption class="table-caption">Regional Secondary Locator letters (Ofcom OFW611, cl. 24).</caption>
         <thead><tr><th scope="col">Nation / area</th><th scope="col">All licences</th><th scope="col">Full (Club) Licence only</th></tr></thead>
@@ -176,7 +176,7 @@
     <section class="surface">
       <p>To mark a national occasion, Ofcom may notify a <strong>temporary RSL</strong> – a special letter used in the <a href="#rsl">RSL</a> position, in place of the normal nation letter, for a bounded period of no more than one year. The permission is notified via the Ofcom website; a royal coronation is named among the occasions it covers.
         <span class="src"><em>Authoritative</em> – Ofcom, <em>Amateur radio guidance</em> (updated 14 October 2025), §5.7.1 (the mechanism, the one-year bound, the “Q” 2022 example, and the royal-coronation occasion); the second-character mechanism and the earlier grants are set out in Ofcom, <em>Policy on temporary call signs and call sign enhancement</em> (March 2018), §5.</span></p>
-      <div class="overflow" tabindex="0" role="region" aria-label="Documented temporary RSLs (Ofcom guidance §5.7.1; Ofcom 2018 policy §5).">
+      <div class="overflow">
       <table>
         <caption class="table-caption">Documented temporary RSLs (Ofcom guidance §5.7.1; Ofcom 2018 policy §5).</caption>
         <thead><tr><th scope="col">Letter</th><th scope="col">Occasion</th><th scope="col">Example</th><th scope="col">Source</th></tr></thead>
@@ -195,7 +195,7 @@
     <section class="surface">
       <p>UK amateur licences come at three classes – <strong>Foundation</strong>, <strong>Intermediate</strong> and <strong>Full</strong> – earned by successive exams; there are also Full (Club) and Full (Temporary Reciprocal) licences. Ofcom’s guidance sets out the callsign formats issued at each class.
         <span class="src"><em>Authoritative</em> – Ofcom, <em>Licensing guidance document for amateur radio</em>, §5, Table 1 (Amateur Radio Call sign formats).</span></p>
-      <div class="overflow" tabindex="0" role="region" aria-label="Callsign initial characters by class (Ofcom guidance, Table 1).">
+      <div class="overflow">
       <table>
         <caption class="table-caption">Callsign initial characters by class (Ofcom guidance, Table 1).</caption>
         <thead><tr><th scope="col">Class</th><th scope="col">Currently issuing</th><th scope="col">Formerly issued</th></tr></thead>
