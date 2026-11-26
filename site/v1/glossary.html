@@ -8,6 +8,11 @@
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="shell.css">
 <script type="module" src="glossary-page.js"></script>
+<style>
+  /* Page-local: the group labels are headings for the outline, styled as the
+     shared label (which is otherwise a div and carries no weight of its own). */
+  h2.lbl{font-weight:400}
+</style>
 </head>
 <!-- The static markup below is the JavaScript-off baseline: the header, nav and
      footer read with no script, and the full definition list is present as
@@ -56,7 +61,7 @@
            parity test (site/v1/glossary-sections.test.ts). -->
       <section data-section="reading-the-record">
         <section class="surface">
-          <div class="lbl">reading the record</div>
+          <h2 class="lbl">reading the record</h2>
           <dl class="gloss">
             <dt id="def-event-time">Event time</dt>
             <dd>When the record states a thing happened. Event time is the dial’s primary upper scale – the readings that answer “what happened, and when”.</dd>
@@ -74,7 +79,7 @@
 
       <section data-section="what-the-record-holds">
         <section class="surface">
-          <div class="lbl">what the record holds</div>
+          <h2 class="lbl">what the record holds</h2>
           <dl class="gloss">
             <dt id="def-publication">publication</dt>
             <dd>One archived file the mirror holds byte-for-byte: a register snapshot, an availability list, a statistics table, and so on.</dd>
@@ -92,7 +97,7 @@
 
       <section data-section="how-the-record-reads-a-date">
         <section class="surface">
-          <div class="lbl">how the record reads a date</div>
+          <h2 class="lbl">how the record reads a date</h2>
           <dl class="gloss">
             <dt id="def-earliest-surviving">earliest surviving</dt>
             <dd>A start date read as the earliest one still surviving in the publication that asserts it, not the original. Rolling retention and reissues drop or replace older rows, so earlier starts may have existed and left no surviving trace, and a later publication can carry less early history than an earlier one. The date bounds how far back the held record reaches, never “the first ever”.</dd>
@@ -106,7 +111,7 @@
 
       <section data-section="how-a-value-is-produced">
         <section class="surface">
-          <div class="lbl">how a value is produced</div>
+          <h2 class="lbl">how a value is produced</h2>
           <dl class="gloss">
             <dt id="def-derived">derived</dt>
             <dd>This value is computed by the mirror from the held publications, not read verbatim from any single one of them.</dd>
@@ -120,7 +125,7 @@
 
       <section data-section="the-parts-of-a-callsign">
         <section class="surface">
-          <div class="lbl">the parts of a callsign</div>
+          <h2 class="lbl">the parts of a callsign</h2>
           <dl class="gloss">
             <dt id="def-prefix">prefix</dt>
             <dd>The opening character or characters of a callsign, showing the country that issued it. UK amateur callsigns begin G, M or 2, allocated by the ITU.</dd>

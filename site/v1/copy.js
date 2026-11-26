@@ -147,7 +147,7 @@ export const V1_COPY = {
       },
       rawData: {
         name: 'Get the raw data',
-        say: 'Every archived publication is preserved byte-for-byte in the open repository, with provenance carried to the byte. See how to download the files and the databases built from them.',
+        say: 'Every archived publication is preserved byte-for-byte in the open repository, with provenance carried to the byte. See where to find the files, and how the databases are built from them.',
       },
     },
   },
@@ -500,10 +500,23 @@ export const V1_COPY = {
       // The charts, the per-year table and the readout for the record’s own
       // “as at” year are stamped into the served HTML at build time. The note
       // states what the script ADDS – never that the figures are waiting on it.
-      enhanceNote: 'Every figure below is in this page as served, with no script needed to read it: the charts and their data tables, the cumulative figures for every year, and the full readout for the record’s own “as at” year. The page’s script adds a slider that moves that readout to any year.',
+      enhanceNote: 'Every figure below is in this page as served, with no script needed to read it: the charts and their data tables, the cumulative figures for every year up to the record’s own “as at” year, and the full readout for that year. The page’s script adds a slider that moves that readout to any of those years.',
       histogramsLabel: 'activity by year, per licensing kind',
-      histogramsNote: 'Each bar is a count of distinct dated events (one per callsign, kind and day; a date asserted by several vintages is one event). A year with no bar carries no held evidence for that kind – non-observation, never “nothing happened”.',
+      histogramsNote: 'Each bar is a count of distinct dated events (one per callsign, kind and day; a date asserted by several vintages is one event). A year with no bar carries no held evidence for that kind – non-observation, never “nothing happened”. The charts run to the record’s own “as at” year; a stated date after it is listed beneath its chart.',
       histogramTotal: '{count} dated events across the held corpus',
+      // Events the record dates after its own "as at" year (stated future ends
+      // of reservation windows): counted in the caption total, so never dropped
+      // silently, but not drawn on an axis that stops at the as-at year.
+      histogramBeyond: 'Also dated after the record’s “as at” year ({year}), and not drawn: {list}. These are counted in the total above and listed in the data table.',
+      // Where the later years run past a handful, the rest are counted.
+      histogramBeyondMore: 'and {count} more across {years} later years',
+      // One sentence per chart on where its DRAWN events fall: visible under
+      // the chart and the start of its accessible name.
+      histogramSummary: 'Drawn here: {count} dated events from {first} to {last}; the busiest year is {peak}, with {peakCount}.',
+      histogramSummaryNone: 'No dated events fall in the drawn years.',
+      histogramBeyondCount: 'A further {count} are dated after {year} and not drawn.',
+      histogramFiguresBelow: '(Figures are in the table below.)',
+      histogramTable: 'Data table (every year with events, including any after the chart ends)',
       cumulativeLabel: 'as at the end of a year',
       scrubberLabel: 'Scrub the timeline – as at the end of a year',
       // The single aggregate announcement the scrubber’s status region makes
