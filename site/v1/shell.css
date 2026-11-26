@@ -548,13 +548,20 @@ td.date,.num{font-family:var(--mono);white-space:nowrap;color:var(--ink-2)}
 .pop .pl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--signal);display:block;margin-bottom:.25rem}
 /* Standalone "?" cue term (issue #921, B1): used where the surrounding prose
    already writes the term out and only a click-through to the fuller definition
-   is wanted (e.g. the dial track labels). A small ringed question mark. */
+   is wanted (e.g. the dial track labels). A small ringed question mark.
+   The ring is drawn at its small size, but the target is a 24px square around
+   it (WCAG 2.2 target size, minimum): the ringed glyph alone measured 9.5 by
+   9.5px. Negative margins keep the square from taking any more room in the
+   line than the ring did, so no line deepens or rewraps; the square overlaps
+   the space before the cue instead. */
 .term.cue{display:inline-block;vertical-align:baseline}
-.term.cue>summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;
-  width:1.05em;height:1.05em;border:1px solid var(--signal-dim);border-radius:50%;border-bottom:1px solid var(--signal-dim);
-  font-family:var(--mono);font-size:.82em;line-height:1;color:var(--signal-strong);background:var(--signal-tint);cursor:help}
+.term.cue>summary{list-style:none;position:relative;z-index:0;display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;margin:calc((1.05em - 24px) / 2);border:0;
+  font-family:var(--mono);font-size:.82em;line-height:1;color:var(--signal-strong);background:none;cursor:help}
+.term.cue>summary::before{content:"";box-sizing:border-box;position:absolute;left:50%;top:50%;z-index:-1;width:1.05em;height:1.05em;
+  transform:translate(-50%,-50%);border:1px solid var(--signal-dim);border-radius:50%;background:var(--signal-tint)}
 .term.cue>summary::-webkit-details-marker{display:none}
-.term.cue>summary:hover{background:#c7e6ea;border-color:var(--signal)}
+.term.cue>summary:hover::before{background:#c7e6ea;border-color:var(--signal)}
 .term.cue>summary:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
 /* Provenance-chip term (issue #921, B1): the .tb chip itself is the affordance,
    so the summary carries no dashed underline — only a help cursor and a small
