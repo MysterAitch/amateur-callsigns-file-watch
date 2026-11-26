@@ -48,6 +48,14 @@ describe('Glossary "?" cue stylesheet', { tags: ['ui'] }, () => {
     expect(declarationsFor(SUMMARY)).toContain('margin:calc((1.05em-24px)/2)calc(1.05em-20px)calc((1.05em-24px)/2)-4px');
   });
 
+  it('AssertionTimeCue_TargetBeneathTheDialScale_ClearsTheScaleAbove', () => {
+    // Measured in a browser: with the label 0.15rem (2.4px) under the scale, the
+    // square overlapped the scale (a scrolling, focusable box on a phone) by
+    // 1.1px. So the label needs at least 2.4 + 1.1 + 2px of clearance = 5.5px.
+    const labelTop = px(declarationsFor('.tracklab.assert').replace(/margin-top:([\d.]+)rem/, (_, n: string) => `margin-top:${Number(n) * 16}px`), 'margin-top') ?? 0;
+    expect(labelTop).toBeGreaterThanOrEqual(5.5);
+  });
+
   it('GlossaryCue_Target_ReachesBackNoMoreThanTheSpaceBeforeItAndNotAtAllInAChip', () => {
     // Centred on the ring, the square covered the whole letter before the cue,
     // so a click on that letter opened the definition instead of selecting it.

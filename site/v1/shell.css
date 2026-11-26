@@ -379,7 +379,9 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .tracklab.event .sw{background:var(--signal)}
 .tracklab.assert .sw{background:var(--line-2)}
 .tracklab b{font-weight:700;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px}
-.tracklab.assert{margin-top:.15rem}
+/* Room for the "?" cue's 24px target to stay clear of the scale above it,
+   which scrolls and takes focus on a phone: at .15rem the two overlapped. */
+.tracklab.assert{margin-top:.35rem}
 .dial-ctl{display:flex;gap:.4rem;flex-wrap:wrap;margin:.35rem 0 .2rem}
 .dial-ctl button{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;cursor:pointer;border:1px solid var(--line-2);
   background:var(--panel);color:var(--ink-2);padding:.28rem .55rem;border-radius:2px}
