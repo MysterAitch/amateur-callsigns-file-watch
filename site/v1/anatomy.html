@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Anatomy of a UK amateur callsign · callsign-record</title>
+<meta name="description" content="The parts of a UK amateur callsign, which characters belong in one, and who decides what is allowed. Background rather than official guidance, with a source for each fact.">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="shell.css">
 <script type="module" src="anatomy-page.js"></script>
@@ -27,8 +28,6 @@
      a box a keyboard stop only while it actually scrolls. */
   main[data-page="anatomy"] .overflow{overflow-x:auto}
   main[data-page="anatomy"] .overflow:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
-  /* Section labels are headings for the outline, styled as the shared label. */
-  h2.lbl{font-weight:400}
   .anat-swatch{display:inline-block;width:.72rem;height:.72rem;border-radius:2px;margin-right:.45rem;vertical-align:middle;border:1px solid rgba(17,24,35,.14)}
   .table-caption{caption-side:top;text-align:left;color:var(--muted);font-size:.78rem;letter-spacing:.02em;padding:.1rem .1rem .5rem;font-family:var(--mono)}
   /* Row headers in the reference tables (shell.css styles thead th and tbody td,
@@ -79,6 +78,8 @@
      renderer (src/ci/render/v1-anatomy.ts); a drift guard holds them in step. -->
 <body>
 
+<a class="skip" href="#main">Skip to content</a>
+
 <div id="sitebar">
   <header class="sitebar">
     <div class="wrap">
@@ -100,7 +101,7 @@
   </header>
 </div>
 
-<main data-page="anatomy">
+<main id="main" data-page="anatomy">
   <div class="wrap">
     <div id="breadcrumb">
       <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span class="arw">→</span><b>Anatomy</b></nav>

@@ -872,8 +872,10 @@ export function renderStatic(data) {
   scrubberSlot.appendChild(readout);
   surface.appendChild(scrubberSlot);
 
+  // The label row holds the heading beside its axis chip, because the chip's
+  // glossary cue is a disclosure and a heading may not contain one.
   const chartsLbl = el('div', 'lbl');
-  chartsLbl.append(copy.histogramsLabel);
+  chartsLbl.appendChild(el('h2', null, copy.histogramsLabel));
   const ax = el('span', 'ax', 'event-time');
   ax.appendChild(termCue('eventTime'));
   chartsLbl.appendChild(ax);
@@ -883,7 +885,7 @@ export function renderStatic(data) {
     surface.appendChild(renderHistogram(kind.label, data.histograms[kind.id] ?? [], data.totals[kind.id] ?? 0, lastYear));
   }
 
-  surface.appendChild(el('div', 'lbl', copy.cumulativeLabel));
+  surface.appendChild(el('h2', 'lbl', copy.cumulativeLabel));
   surface.appendChild(renderCumulativeTable(bounded));
 
   return surface;

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>Get the raw data · callsign-record</title>
+<meta name="description" content="Every archived publication, preserved byte-for-byte in the open repository, with the code that builds the databases from it.">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="shell.css">
 <script type="module" src="raw-data.js"></script>
@@ -20,8 +21,6 @@
   /* A row whose download is not linked from these pages says so in words, in
      the row itself, so an unlinked heading never reads as a broken link. */
   .dl .row .absent{margin-top:.35rem;font-weight:600;color:var(--ink)}
-  /* Section labels are headings for the outline, styled as the shared label. */
-  h2.lbl{font-weight:400}
 </style>
 </head>
 <!-- Hand-authored static page. Every archived publication is preserved in the
@@ -31,6 +30,8 @@
      raw-data.test.ts holds every row to one or the other. The header, nav and footer read with JavaScript
      off; raw-data.js only re-mounts the shared chrome. -->
 <body>
+
+<a class="skip" href="#main">Skip to content</a>
 
 <div id="sitebar">
   <header class="sitebar">
@@ -53,7 +54,7 @@
   </header>
 </div>
 
-<main data-page="raw-data">
+<main id="main" data-page="raw-data">
   <div class="wrap">
     <div id="breadcrumb">
       <nav class="crumbs" aria-label="Breadcrumb"><a href="index.html">Home</a><span class="arw">→</span><b>Get the raw data</b></nav>
