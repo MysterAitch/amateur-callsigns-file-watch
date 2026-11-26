@@ -95,6 +95,11 @@ interface ManifestDataset {
   // Rows it could not (a callsign that cleans to nothing). They are in the
   // file all the same, so a count of what the file holds adds them back.
   unkeyable?: number;
+  // The publisher's declared coverage intent (false = declared partial), and a
+  // verified observation that the file omits records it claims to hold. Both
+  // feed the whole-register test (isWholeRegister).
+  intendedComplete?: boolean | null;
+  coverageNote?: string;
 }
 
 // One held publication, as the down-markers read it.
@@ -195,13 +200,9 @@ function recordsInFile(dataset: ManifestDataset): number {
 
 export function holdingsPublications(datasets: readonly ManifestDataset[]): HoldingPublication[] {
   const dated = datasets.filter((d): d is ManifestDataset & { vintage: string } => typeof d.vintage === 'string' && d.vintage !== '');
-  // The newest register snapshot is the ringed "latest" mark — the single most
-  // recent dated register-snapshot publication.
-  let latestKey: string | null = null;
-  for (const d of dated) {
-    if (primaryKind(d) !== 'register-snapshot') continue;
-    if (latestKey === null || d.vintage > latestKey) latestKey = d.vintage;
-  }
+  // The ringed "latest" mark is the newest WHOLE register (newestWholeRegister),
+  // the same file whose records the home page counts.
+  const newestWhole = newestWholeRegister(datasets);
   return dated
     .map((d): HoldingPublication => {
       const kind = primaryKind(d);
@@ -211,7 +212,7 @@ export function holdingsPublications(datasets: readonly ManifestDataset[]): Hold
         letter: KIND_LETTER[kind] ?? kind.charAt(0).toUpperCase(),
         title: d.title,
         rows: recordsInFile(d),
-        latest: primaryKind(d) === 'register-snapshot' && d.vintage === latestKey,
+        latest: d === newestWhole,
       };
     })
     .sort((a, b) => (a.vintage < b.vintage ? -1 : a.vintage > b.vintage ? 1 : a.title < b.title ? -1 : a.title > b.title ? 1 : 0));
@@ -264,16 +265,50 @@ export function homeMilestones(prefixRows: readonly PrefixIntroRow[]): HoldingMi
 // ---------------------------------------------------------------------------
 // Assembly.
 
-// The newest dated register snapshot, with every record its file holds. On
-// 2026-09-22 one row's callsign was a single full stop: the lookup cannot key
-// it, and the file still has 163,342 records, not 163,341.
-export function latestRegister(datasets: readonly ManifestDataset[]): { vintage: string; records: number } | null {
-  let newest: (ManifestDataset & { vintage: string }) | null = null;
-  for (const d of datasets) {
-    if (typeof d.vintage !== 'string' || d.vintage === '' || primaryKind(d) !== 'register-snapshot') continue;
-    if (newest === null || d.vintage > newest.vintage) newest = { ...d, vintage: d.vintage };
+// A register file counts as WHOLE - a reading of the full register on its date -
+// when its publisher did not declare it partial, no verified observation says
+// it omits records, and it holds at least this share of the previous whole
+// register's records. The share sits between the two populations the archive
+// actually holds: partial register files (allocated-only, reserved-only,
+// issued-scope, the duration breakdown, a blank-product omission) hold at most
+// 72% of the whole register before them, while whole registers have never fallen
+// below 91% (2026-01-14, itself a known omission). Taking "the newest register"
+// as simply the newest register-kind file put a 1,074-row truncated file, a
+// reserved-only list, and others in that place at 10 of the 39 points since the
+// first register was held, so a callsign page read nearly every status as
+// out of date the day such a file arrived.
+//
+// What it cannot tell: a whole register that genuinely shrinks by a fifth or
+// more is skipped until a later one is as large; a partial file holding four
+// fifths or more of the register, with no declaration or coverage note, is
+// taken as whole; and a month-only vintage cannot be ordered against a dated
+// one in the same month (the string order puts the month first).
+export const WHOLE_REGISTER_SHARE = 0.8;
+
+function isRegisterCandidate(d: ManifestDataset): d is ManifestDataset & { vintage: string } {
+  return typeof d.vintage === 'string' && d.vintage !== '' && primaryKind(d) === 'register-snapshot'
+    && d.intendedComplete !== false && (d.coverageNote ?? '') === '';
+}
+
+// The newest whole register file, or null when no register snapshot is held.
+// Files are walked by date, the larger first within one date, each compared to
+// the whole register before it; the first register held is taken as whole.
+export function newestWholeRegister(datasets: readonly ManifestDataset[]): ManifestDataset | null {
+  const candidates = datasets.filter(isRegisterCandidate)
+    .sort((a, b) => (a.vintage < b.vintage ? -1 : a.vintage > b.vintage ? 1 : recordsInFile(b) - recordsInFile(a)));
+  let whole: ManifestDataset | null = null;
+  for (const d of candidates) {
+    if (whole === null || recordsInFile(d) >= WHOLE_REGISTER_SHARE * recordsInFile(whole)) whole = d;
   }
-  return newest === null ? null : { vintage: newest.vintage, records: recordsInFile(newest) };
+  return whole;
+}
+
+// The newest whole register, with every record its file holds. On 2026-09-22
+// one row's callsign was a single full stop: the lookup cannot key it, and the
+// file still has 163,342 records, not 163,341.
+export function latestRegister(datasets: readonly ManifestDataset[]): { vintage: string; records: number } | null {
+  const newest = newestWholeRegister(datasets);
+  return newest === null || newest.vintage === null ? null : { vintage: newest.vintage, records: recordsInFile(newest) };
 }
 
 export function homeHoldings(datasets: readonly ManifestDataset[], prefixRows: readonly PrefixIntroRow[]): HomeHoldings {

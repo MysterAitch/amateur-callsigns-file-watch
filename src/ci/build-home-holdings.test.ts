@@ -117,6 +117,120 @@ describe('home holdings — real archive (deriving over the committed corpus)', 
   });
 });
 
+// The live archive's register era as the shards manifest describes it at the
+// 22 September 2026 build: [manifest index, vintage, first class, records in the
+// file, intendedComplete, whether a verified coverage note says it omits rows].
+// Replaying it truncated after each publication asks which file the site would
+// have called "the newest register" on that day. Most answers were decided from
+// each file's own recorded scope before the rule existed: an allocated-only list
+// (2020-03-26), a reserved-only list (2020-10-23), two lists whose entries record
+// that they omit the reserved pool (2023-11-24, 2023-12-07), an issued-scope file
+// (2024-07-22), the two 1,074-row truncated open-data files, the 2025-06-04 file
+// that omits every blank-product record, and the 2026-01-14 file that omits every
+// suffix containing Z are never the newest register; nor is anything that is not
+// a register snapshot. ONE answer rests on size alone, the rule's own signal: the
+// smaller 2024-10 duration-breakdown sheet (103,720 records beside its 156,256
+// sibling) records no scope of its own. And one answer is a known weakness, not a
+// success: after 2021-01 the newest register is the "corrupt annex" export, a
+// narrower copy with fourteen broken callsign cells whose clean twin arrived
+// 2021-01-29 - nothing in the manifest marks it, so the rule takes it.
+const REAL_REGISTER_ERA: [number, string, string, number, boolean | null, boolean][] = [
+  [27, '2016-09', 'register-snapshot', 139758, null, false],
+  [28, '2016-09-20', 'register-snapshot', 139758, null, false],
+  [29, '2017-07-13', 'register-snapshot', 135866, null, false],
+  [30, '2017-11', 'issuance-events', 113, null, false],
+  [31, '2017-11', 'issuance-events', 319, null, false],
+  [32, '2019-08-12', 'register-snapshot', 141295, null, false],
+  [33, '2019-09-12', 'register-snapshot', 141295, null, false],
+  [34, '2020-03-26', 'register-snapshot', 92318, null, false],
+  [35, '2020-04-23', 'attribute-addendum', 2049, null, false],
+  [36, '2020-10-23', 'register-snapshot', 50524, null, false],
+  [37, '2021-01', 'register-snapshot', 146469, null, false],
+  [38, '2021-01-29', 'register-snapshot', 146763, null, false],
+  [39, '2021-04-21', 'register-snapshot', 147877, null, false],
+  [40, '2022-03-07', 'register-snapshot', 150181, null, false],
+  [41, '2022-03-14', 'register-snapshot', 150238, null, false],
+  [42, '2022-05-30', 'register-snapshot', 151152, true, false],
+  [43, '2023-01-25', 'register-snapshot', 152084, null, false],
+  [44, '2023-02-20', 'register-snapshot', 152084, true, false],
+  [45, '2023-08-18', 'register-snapshot', 153248, null, false],
+  [46, '2023-11-24', 'register-snapshot', 108922, null, false],
+  [47, '2023-12-07', 'register-snapshot', 108992, null, false],
+  [48, '2024-01', 'register-snapshot', 153938, null, false],
+  [49, '2024-04-30', 'register-snapshot', 154582, null, false],
+  [50, '2024-07', 'register-snapshot', 155346, null, false],
+  [51, '2024-07-22', 'register-snapshot', 110622, null, false],
+  [52, '2024-09', 'register-snapshot', 159999, null, false],
+  [53, '2024-10', 'register-snapshot', 156256, null, false],
+  [54, '2024-10', 'register-snapshot', 103720, null, false],
+  [55, '2024-10-21', 'register-snapshot', 156278, null, false],
+  [56, '2025-03-13', 'register-snapshot', 157227, null, false],
+  [57, '2025-04-08', 'register-snapshot', 157427, true, false],
+  [58, '2025-05-27', 'register-snapshot', 1074, false, false],
+  [59, '2025-06-04', 'register-snapshot', 112650, true, true],
+  [60, '2025-06-08', 'register-snapshot', 1074, false, false],
+  [61, '2025-09-11', 'register-snapshot', 158470, null, false],
+  [62, '2025-11-11', 'register-snapshot', 159895, true, false],
+  [63, '2026-01-14', 'register-snapshot', 146417, true, true],
+  [64, '2026-06-23', 'register-snapshot', 158318, true, false],
+  [65, '2026-09-22', 'register-snapshot', 163342, true, false],
+];
+
+// Truncated after manifest index → the index the site should call the newest
+// register. Every point where the newest file is NOT a whole register is listed
+// with the earlier file it must fall back to.
+const NEWEST_REGISTER_AFTER: Record<number, number> = {
+  27: 27, 28: 28, 29: 29, 30: 29, 31: 29, 32: 32, 33: 33, 34: 33, 35: 33, 36: 33,
+  37: 37, 38: 38, 39: 39, 40: 40, 41: 41, 42: 42, 43: 43, 44: 44, 45: 45, 46: 45,
+  47: 45, 48: 48, 49: 49, 50: 50, 51: 50, 52: 52, 53: 53, 54: 53, 55: 55, 56: 56,
+  57: 57, 58: 57, 59: 57, 60: 57, 61: 61, 62: 62, 63: 62, 64: 64, 65: 65,
+};
+
+function realEraUpTo(lastIndex: number): ManifestDataset[] {
+  return REAL_REGISTER_ERA
+    .filter(([i]) => i <= lastIndex)
+    .map(([i, vintage, kind, records, intendedComplete, omits]) => ({
+      lane: 'foi', vintage, title: `publication ${i}`, classes: [kind], rows: records,
+      intendedComplete, coverageNote: omits ? 'a verified observation says this file omits records' : '',
+    }));
+}
+
+describe('home holdings — the newest register (whole files only)', { tags: ['unit'] }, () => {
+  for (const [after, expected] of Object.entries(NEWEST_REGISTER_AFTER)) {
+    const [, vintage, , records] = REAL_REGISTER_ERA.find(([i]) => i === expected) ?? [];
+    it(`LatestRegister_RealArchiveTruncatedAfterPublication${after}_IsPublication${expected}`, () => {
+      expect(homeHoldings(realEraUpTo(Number(after)), PREFIX_ROWS).latestRegister).toEqual({ vintage, records });
+    });
+  }
+
+  it('LatestRegister_RealArchiveTruncatedAtEachPoint_RingsTheSameFileItCounts', () => {
+    for (const after of [34, 36, 46, 51, 54, 58, 59, 60, 63, 65]) {
+      const h = homeHoldings(realEraUpTo(after), PREFIX_ROWS);
+      const ringed = h.publications.filter((p) => p.latest);
+      expect(ringed, `after ${after}`).toHaveLength(1);
+      expect(ringed[0].rows, `after ${after}`).toBe(h.latestRegister?.records);
+    }
+  });
+
+  it('LatestRegister_RegisterGenuinelyShrinksByUnderAFifth_StillCountsAsTheNewestRegister', () => {
+    // 2026-01-14's size drop (8.4%) was a real shrink plus a known omission; a
+    // register that shrinks by less than a fifth is taken as whole.
+    const datasets: ManifestDataset[] = [
+      { lane: 'open-data', vintage: '2030-01-01', title: 'a', classes: ['register-snapshot'], rows: 160000 },
+      { lane: 'open-data', vintage: '2030-06-01', title: 'b', classes: ['register-snapshot'], rows: 129000 },
+    ];
+    expect(homeHoldings(datasets, PREFIX_ROWS).latestRegister).toEqual({ vintage: '2030-06-01', records: 129000 });
+  });
+
+  it('LatestRegister_RegisterUnderFourFifthsOfThePreviousWholeOne_FallsBackToThatOne', () => {
+    const datasets: ManifestDataset[] = [
+      { lane: 'open-data', vintage: '2030-01-01', title: 'a', classes: ['register-snapshot'], rows: 160000 },
+      { lane: 'open-data', vintage: '2030-06-01', title: 'b', classes: ['register-snapshot'], rows: 127999 },
+    ];
+    expect(homeHoldings(datasets, PREFIX_ROWS).latestRegister).toEqual({ vintage: '2030-01-01', records: 160000 });
+  });
+});
+
 describe('home holdings — assembly', { tags: ['unit'] }, () => {
   it('HomeHoldings_RealSpan_DerivesCountAndEndpointsFromTheEnumeration', () => {
     const h = homeHoldings(DATASETS, PREFIX_ROWS);
@@ -167,11 +281,11 @@ describe('home holdings — assembly', { tags: ['unit'] }, () => {
   it('HomeHoldings_NewestRegisterSnapshot_ReportsItsVintageAndEveryRecordIncludingUnkeyableOnes', () => {
     const datasets: ManifestDataset[] = [
       ...DATASETS,
-      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 4321, unkeyable: 2 },
+      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 161321, unkeyable: 2 },
     ];
 
-    // 4,321 rows the lookup can key plus 2 it cannot: the file holds 4,323.
-    expect(homeHoldings(datasets, PREFIX_ROWS).latestRegister).toEqual({ vintage: '2027-03-05', records: 4323 });
+    // 161,321 rows the lookup can key plus 2 it cannot: the file holds 161,323.
+    expect(homeHoldings(datasets, PREFIX_ROWS).latestRegister).toEqual({ vintage: '2027-03-05', records: 161323 });
   });
 
   // The home page showed 163,342 callsigns for the 2026-09-22 register and,
@@ -182,14 +296,14 @@ describe('home holdings — assembly', { tags: ['unit'] }, () => {
   it('HoldingsPublications_APublicationWithUnkeyableRows_CountsEveryRowInTheFile', () => {
     const datasets: ManifestDataset[] = [
       { lane: 'foi', vintage: '2020-04-23', title: 'a disclosure with unkeyable rows', classes: ['available-pool'], rows: 2037, unkeyable: 12 },
-      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 4321, unkeyable: 2 },
+      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 161321, unkeyable: 2 },
       { lane: 'open-data', vintage: '2019-01-14', title: 'no unkeyable field', classes: ['register-snapshot'], rows: 130000 },
     ];
 
     const h = homeHoldings(datasets, PREFIX_ROWS);
 
-    // 2,037 + 12 = 2,049; 4,321 + 2 = 4,323; an entry without the field keeps its rows.
-    expect(h.publications.map(p => [p.vintage, p.rows])).toEqual([['2019-01-14', 130000], ['2020-04-23', 2049], ['2027-03-05', 4323]]);
+    // 2,037 + 12 = 2,049; 161,321 + 2 = 161,323; an entry without the field keeps its rows.
+    expect(h.publications.map(p => [p.vintage, p.rows])).toEqual([['2019-01-14', 130000], ['2020-04-23', 2049], ['2027-03-05', 161323]]);
     const newest = h.publications.find(p => p.latest);
     expect(newest?.rows, 'the ringed mark and the callsign total count the same file').toBe(h.latestRegister?.records);
   });
@@ -219,7 +333,7 @@ describe('home holdings — assembly', { tags: ['unit'] }, () => {
   it('HoldingsManifest_AsTheBuilderWritesIt_IsReadByThePageAndSetsItsCallsignTotal', () => {
     const datasets: ManifestDataset[] = [
       ...DATASETS,
-      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 4321, unkeyable: 2 },
+      { lane: 'open-data', vintage: '2027-03-05', title: 'Ofcom open data, 2027-03-05', classes: ['register-snapshot'], rows: 161321, unkeyable: 2 },
     ];
     const asServed: unknown = JSON.parse(JSON.stringify(homeHoldings(datasets, PREFIX_ROWS)));
 
@@ -227,9 +341,9 @@ describe('home holdings — assembly', { tags: ['unit'] }, () => {
     if (parsed === null) throw new Error('the page rejected the manifest the builder wrote');
     const model = enhanceHomeModel(defaultHomeModel(), parsed);
 
-    expect(model.glance.find(cell => cell.k === 'callsigns')?.v).toBe('4,323');
+    expect(model.glance.find(cell => cell.k === 'callsigns')?.v).toBe('161,323');
     expect(model.glance.find(cell => cell.k === 'latest snapshot')?.v).toBe('2027-03-05');
-    expect(model.fromTheRecord[0].sentence).toContain('(2027-03-05) records 4,323 callsigns');
+    expect(model.fromTheRecord[0].sentence).toContain('(2027-03-05) records 161,323 callsigns');
     expect(model.facts).toEqual({ date: '5 March 2027', count: 5 });
   });
 

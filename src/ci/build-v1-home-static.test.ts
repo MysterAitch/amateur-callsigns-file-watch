@@ -280,16 +280,18 @@ describe('build-v1-home-static - publications arriving and edge cases', { tags: 
     expect(fs.readFileSync(path.join(dir, 'index.html')).equals(first)).toBe(true);
   });
 
-  it('HomePage_WhenTheNewestRegisterHoldsZeroRecords_StatesZeroAsTheScriptWould', () => {
+  it('HomePage_WhenTheNewestRegisterFileHoldsZeroRecords_StatesTheLastWholeRegisterTheManifestNames', () => {
     // The stamp's question is whether the page agrees with the manifest, so it
-    // states what the manifest says. Whether an empty register should have
-    // landed at all is a question for the data's own gates, before deploy.
+    // states what the manifest says. An empty register file is not a whole
+    // register (newestWholeRegister in build-home-holdings.ts), so the manifest
+    // names the 2019-05-01 register of 5,000 records. Whether an empty register
+    // should have landed at all is a question for the data's own gates.
     const empty = MARCH_2027.map(d => (d.vintage === '2027-03-16' ? { ...d, rows: 0, unkeyable: 0 } : d));
     const dir = scaffold(holdingsJson(empty));
     buildV1HomeStatic(dir);
     const doc = served(dir);
-    expect(glanceCells(doc)).toContain('callsigns | 0 | register of 2027-03-16');
-    expect(fromTheRecord(doc)).toContain('records 0 callsigns');
+    expect(glanceCells(doc)).toContain('callsigns | 5,000 | register of 2019-05-01');
+    expect(fromTheRecord(doc)).not.toContain('records 0 callsigns');
   });
 
   it('HomeSectionHtml_ForEveryStampedSection_ReparsesToTheTreeTheRenderBuilt', () => {
