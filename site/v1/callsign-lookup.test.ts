@@ -147,9 +147,14 @@ describe('Callsign lookup input: what was typed against what was looked up', { t
     expect(input.shown).toBe('M7TEE[U+202E]');
   });
 
-  it('LookupLabel_OnlyAZeroWidthSpace_IsNeverEmpty', () => {
-    expect(lookupLabel(describeLookupInput('​', cleanCallsign))).toBe('[U+200B]');
-  });
+  // Inputs with nothing to look up are labelled in fixed words, never by echoing
+  // the input: a variation selector or a Hangul filler is invisible however it is
+  // escaped, and would leave the heading, breadcrumb, and title blank.
+  for (const typed of ['​', '️', 'ㅤ', '!?!', '/']) {
+    it(`LookupLabel_NothingToLookUpIn${JSON.stringify(typed)}_IsFixedWordsNeverBlank`, () => {
+      expect(lookupLabel(describeLookupInput(typed, cleanCallsign))).toBe('Nothing to look up');
+    });
+  }
 
   const SUFFIXES: [string, { base: string, suffix: string } | null][] = [
     ['M7TEE/P', { base: 'M7TEE', suffix: 'P' }],
@@ -226,13 +231,14 @@ describe('Callsign page: input that is not a held callsign', { tags: ['ui'] }, (
       expect(text).not.toContain('No record for');
       expect(text).not.toContain('This page looked up');
       expect(root.querySelectorAll('h1').length).toBe(1);
-      expect(root.querySelector('h1')?.textContent).toBe(quoted);
+      expect(root.querySelector('h1')?.textContent).toBe('Nothing to look up');
     });
   }
 
-  it('FastAnswer_OnlyAZeroWidthSpace_HeadsThePageWithTheCodePointNotABlank', () => {
+  it('FastAnswer_OnlyAZeroWidthSpace_QuotesItByCodePointUnderAFixedHeading', () => {
     const root = render(null, ARCHIVE, '​');
-    expect(root.querySelector('h1')?.textContent).toBe('[U+200B]');
+    expect(root.querySelector('h1')?.textContent).toBe('Nothing to look up');
+    expect(root.querySelector('.callout bdi')?.textContent).toBe('[U+200B]');
     expect(root.textContent ?? '').not.toContain('​');
   });
 
@@ -292,15 +298,19 @@ describe('Callsign page: input that is not a held callsign', { tags: ['ui'] }, (
   // with something the cleaning left out, and one made of many distinct symbols.
   for (const [name, typed] of [
     ['ThreeHundredLettersAndAnAccent', `${'A'.repeat(300)}É`],
+    ['LongCallsignShapedKeyEndingInSlashP', `A1${'A'.repeat(300)}/P`],
     ['ThreeHundredDistinctSymbols', Array.from({ length: 300 }, (_, i) => String.fromCodePoint(0x2190 + i)).join('')],
   ]) {
     it(`FastAnswer_${name}_QuotesAndListsOnlyABoundedPart`, () => {
       const root = render(null, ARCHIVE, typed);
-      const note = root.querySelector('.lookup-input')?.textContent ?? root.querySelector('.callout')?.textContent ?? '';
-      expect(note.length).toBeLessThan(400);
-      // No unbroken run longer than a bounded query (its "..." included) once
-      // the surrounding quotes and punctuation are set aside.
-      for (const word of note.split(/\s+/)) expect(word.replace(/^["(]+|[".,):]+$/g, '').length, word).toBeLessThanOrEqual(QUERY_DISPLAY_MAX + 3);
+      // Every text node in the answer, link text included: no unbroken run longer
+      // than a bounded query (its "..." included) once the surrounding quotes and
+      // punctuation are set aside.
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const words: string[] = [];
+      for (let n = walker.nextNode(); n !== null; n = walker.nextNode()) words.push(...(n.textContent ?? '').split(/\s+/));
+      expect(words.length).toBeGreaterThan(0);
+      for (const word of words) expect(word.replace(/^["(]+|[".,):]+$/g, '').length, word).toBeLessThanOrEqual(QUERY_DISPLAY_MAX + 3);
     });
   }
 

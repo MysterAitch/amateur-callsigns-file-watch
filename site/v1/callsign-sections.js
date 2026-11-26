@@ -265,11 +265,13 @@ export function boundedQuery(query) {
 }
 
 // What a lookup is called in the heading, breadcrumb, and tab title: the key
-// looked up, or - when nothing survived the cleaning - the input as typed,
-// made displayable. Never empty, and bounded.
+// looked up, bounded - or, when there is nothing to look up, fixed words. The
+// input itself is not echoed there: some characters (a variation selector, a
+// Hangul filler) are blank however they are escaped, and left the heading,
+// breadcrumb, and title empty. The callout beneath quotes the input instead.
 /** @param {LookupInput} input @returns {string} */
 export function lookupLabel(input) {
-  return boundedQuery(lookupShape(input.lookedUp) === 'empty' ? input.shown : input.lookedUp).text;
+  return lookupShape(input.lookedUp) === 'empty' ? V1_COPY.callsign.lookup.headingNothingToLookUp : boundedQuery(input.lookedUp).text;
 }
 
 // The document title for a lookup: the query first, so tabs, history entries
@@ -1008,7 +1010,7 @@ function appendMiss(head, model) {
   if (split !== null) {
     const p = el('p', 'note');
     p.append(fillTemplate(c.operatingSuffix, { lookedUp, suffix: split.suffix }));
-    p.appendChild(link(`callsign.html?c=${encodeURIComponent(split.base)}`, fillTemplate(c.operatingSuffixTry, { base: split.base })));
+    p.appendChild(link(`callsign.html?c=${encodeURIComponent(split.base)}`, fillTemplate(c.operatingSuffixTry, { base: boundedQuery(split.base).text })));
     p.append('.');
     head.appendChild(p);
   }

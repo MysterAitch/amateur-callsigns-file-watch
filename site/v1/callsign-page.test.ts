@@ -130,7 +130,9 @@ describe('Callsign page entry point', { tags: ['ui'] }, () => {
     const p = page();
     expect(p.status).toBe('Nothing to look up: no letters A to Z or digits 0 to 9 were entered.');
     expect(document.getElementById('lookup-status')?.getAttribute('role')).toBe('status');
-    expect(p.h1s).toEqual(['!?!']);
+    expect(p.h1s).toEqual(['Nothing to look up']);
+    expect(p.title).toBe(`Nothing to look up · ${BASE_TITLE}`);
+    expect(p.crumb).toEqual(['Home', 'Look up', 'Nothing to look up']);
     expect(requested.filter((r) => /\/callsign\/data\/(?!datasets)/.test(r))).toEqual([]);
   });
 

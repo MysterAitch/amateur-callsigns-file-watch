@@ -121,14 +121,19 @@ describe('home holdings — real archive (deriving over the committed corpus)', 
 // 22 September 2026 build: [manifest index, vintage, first class, records in the
 // file, intendedComplete, whether a verified coverage note says it omits rows].
 // Replaying it truncated after each publication asks which file the site would
-// have called "the newest register" on that day. The answers were decided from
-// the files' own scope before the rule existed: an allocated-only list
-// (2020-03-26), a reserved-only list (2020-10-23), the issued-scope and
-// duration-breakdown files (2023-11-24, 2023-12-07, 2024-07-22, the smaller
-// 2024-10 file), the two 1,074-row truncated open-data files, the 2025-06-04 file
+// have called "the newest register" on that day. Most answers were decided from
+// each file's own recorded scope before the rule existed: an allocated-only list
+// (2020-03-26), a reserved-only list (2020-10-23), two lists whose entries record
+// that they omit the reserved pool (2023-11-24, 2023-12-07), an issued-scope file
+// (2024-07-22), the two 1,074-row truncated open-data files, the 2025-06-04 file
 // that omits every blank-product record, and the 2026-01-14 file that omits every
-// suffix containing Z are never the newest register; nor is anything that is
-// not a register snapshot.
+// suffix containing Z are never the newest register; nor is anything that is not
+// a register snapshot. ONE answer rests on size alone, the rule's own signal: the
+// smaller 2024-10 duration-breakdown sheet (103,720 records beside its 156,256
+// sibling) records no scope of its own. And one answer is a known weakness, not a
+// success: after 2021-01 the newest register is the "corrupt annex" export, a
+// narrower copy with fourteen broken callsign cells whose clean twin arrived
+// 2021-01-29 - nothing in the manifest marks it, so the rule takes it.
 const REAL_REGISTER_ERA: [number, string, string, number, boolean | null, boolean][] = [
   [27, '2016-09', 'register-snapshot', 139758, null, false],
   [28, '2016-09-20', 'register-snapshot', 139758, null, false],

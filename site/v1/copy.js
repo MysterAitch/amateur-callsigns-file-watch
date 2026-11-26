@@ -196,7 +196,7 @@ export const V1_COPY = {
       legendLabel: 'how to read it',
       legendEvent: 'an event – when something happened, as the record states it',
       legendSighting: 'a sighting – a publication that recorded this callsign, at its vintage',
-      legendState: 'current state – the latest status the mirror holds',
+      legendState: 'current state - the status the newest register snapshot held records for it',
       legendDisputed: 'disputed – held publications assert competing dates for a kind; every one is shown',
       microExample: 'Worked example: a diamond above the axis at 2018 says the record states that happened in 2018; a pip below at 2021 is a publication that recorded this callsign in 2021 – an event can predate the first sighting.',
       // Plain-English names for the tinted event kinds, keyed by kind id, so the
@@ -242,8 +242,9 @@ export const V1_COPY = {
       },
       // The current-state terminus suffix. Appended to the record's own latest
       // status value ('Allocated – current state') as the green node closing the
-      // event story on both the dial scale and the event rail. Record-scoped: it
-      // names the latest status the mirror holds, not a claim about the register.
+      // event story on both the dial scale and the event rail. Used only for the
+      // newest register snapshot's own status (see StatusCurrency in
+      // callsign-sections.js); record-scoped, not a claim about the register.
       currentStateLabel: 'current state',
       // The same terminus when its status comes from a publication older than the
       // newest one held: the last status the mirror holds, never presented as the
@@ -335,6 +336,7 @@ export const V1_COPY = {
       truncated: '({length} characters; the first {shown} are shown.)',
       nothingToLookUp: '"{entered}" has no letters A to Z or digits 0 to 9 in it, so there is nothing to look up. A callsign is made of the letters A to Z, the digits 0 to 9, and sometimes /.',
       statusLookingUp: 'Looking up...',
+      headingNothingToLookUp: 'Nothing to look up',
       statusNothingToLookUp:'Nothing to look up: no letters A to Z or digits 0 to 9 were entered.',
       statusCouldNotLookUp: 'Could not look this up.',
       unrecognisedShape: '{lookedUp} is not shaped like a callsign this page recognises: a callsign combines letters with at least one digit, as in M7TEE.',
