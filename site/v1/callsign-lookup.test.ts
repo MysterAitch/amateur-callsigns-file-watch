@@ -15,6 +15,7 @@ import {
   callsignPageTitle,
   syncScrollerFocus,
   openAtState,
+  holdStateInView,
   QUERY_DISPLAY_MAX,
 } from './callsign-sections.js';
 // The real shared functions the deployed page loads at runtime, so the
@@ -553,6 +554,61 @@ describe('Callsign page: structure and wording', { tags: ['ui'] }, () => {
       expect(scroller.scrollLeft).toBe(opensAt);
     });
   }
+
+  // A scale whose layout can be changed mid-test, as a window narrowing does:
+  // the terminus sits at x within a 638 px scale, in a box `width` wide.
+  function narrowableScroller(stateX: number): { scroller: Element, setWidth: (w: number) => void } {
+    const scroller = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('.dial-scroll');
+    const state = scroller?.querySelector('.ev.state');
+    if (scroller === null || scroller === undefined || state === null || state === undefined) throw new Error('no dial scroller or terminus');
+    let width = 940;
+    Object.defineProperty(scroller, 'scrollWidth', { get: () => Math.max(638, width) });
+    Object.defineProperty(scroller, 'clientWidth', { get: () => width });
+    Object.defineProperty(scroller, 'scrollLeft', { value: 0, writable: true });
+    scroller.getBoundingClientRect = () => DOMRect.fromRect({ x: 10, y: 0, width, height: 200 });
+    state.getBoundingClientRect = () => DOMRect.fromRect({ x: 10 + stateX - (scroller as HTMLElement).scrollLeft, y: 0, width: 0, height: 0 });
+    return { scroller, setWidth: (w) => { width = w; } };
+  }
+
+  it('DialScroller_WindowNarrowedAfterOpening_ReCentresTheStatus', () => {
+    // A phone turned from landscape to portrait: opened where nothing scrolls,
+    // then narrowed to 291 px, the status at 620 must come into view.
+    const { scroller, setWidth } = narrowableScroller(620);
+    const reopen = holdStateInView(scroller);
+    expect(scroller.scrollLeft).toBe(0);
+    setWidth(291);
+    reopen();
+    expect(scroller.scrollLeft).toBe(347);
+  });
+
+  const gestures: [string, () => Event][] = [
+    ['Wheel', () => new Event('wheel', { bubbles: true })],
+    ['Pointer', () => new Event('pointerdown', { bubbles: true })],
+    ['Touch', () => new Event('touchstart', { bubbles: true })],
+    ['ArrowKey', () => new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })],
+  ];
+  for (const [name, gesture] of gestures) {
+    it(`DialScroller_AfterTheReaderScrollsItBy${name}_IsNotMovedAgainOnResize`, () => {
+      const { scroller, setWidth } = narrowableScroller(620);
+      setWidth(291);
+      const reopen = holdStateInView(scroller);
+      expect(scroller.scrollLeft).toBe(347);
+      scroller.dispatchEvent(gesture());
+      (scroller as HTMLElement).scrollLeft = 100;
+      setWidth(320);
+      reopen();
+      expect(scroller.scrollLeft).toBe(100);
+    });
+  }
+
+  it('DialScroller_TabPassingThroughTheFocusedBox_DoesNotCountAsTheReaderScrolling', () => {
+    const { scroller, setWidth } = narrowableScroller(620);
+    const reopen = holdStateInView(scroller);
+    scroller.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    setWidth(291);
+    reopen();
+    expect(scroller.scrollLeft).toBe(347);
+  });
 
   for (const [scrollWidth, clientWidth, focusable] of [[638, 291, true], [940, 940, false], [600, 940, false]] as const) {
     it(`ScrollerFocus_ContentWidth${scrollWidth}InABox${clientWidth}Wide_${focusable ? 'TakesKeyboardFocus' : 'IsNoTabStop'}`, () => {

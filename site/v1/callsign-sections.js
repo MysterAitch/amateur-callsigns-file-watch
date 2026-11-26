@@ -862,7 +862,8 @@ export function dialGeometry(events, sightings, state = null) {
 }
 
 // The current-state terminus (issue #921): the record's latest held status as a
-// green node closing the event story on both the dial scale and the event rail.
+// round node closing the event story on both the dial scale and the event rail
+// (green when current, hollow when last recorded; shell.css draws both).
 // It is an assertion-anchored claim, dated by the register snapshot its status
 // came from whenever that is dated: a newer sighting in an availability list
 // carries no register status, so dating the status by it would make an old
@@ -921,8 +922,8 @@ export function syncScrollerFocus(scroller) {
 // centred, as far as the scale allows. Not simply at the right-hand end: a
 // future-dated event (GB2RS's reservation window ends 2099-12-31) can sit far
 // to the right of a terminus dated years earlier, and the right-hand end then
-// hides the status. With no terminus drawn, it opens at the newest end. Call
-// once after layout, not on resize, so a reader's own scrolling is never undone.
+// hides the status. With no terminus drawn, it opens at the newest end. Called
+// after layout through holdStateInView, which decides when it may run again.
 /** @param {Element} scroller */
 export function openAtState(scroller) {
   const max = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
@@ -933,6 +934,33 @@ export function openAtState(scroller) {
   }
   const x = state.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
   scroller.scrollLeft = Math.min(max, Math.max(0, x - scroller.clientWidth / 2));
+}
+
+// Opening once was not enough: a page opened where nothing scrolls (a phone in
+// landscape) and then narrowed (turned to portrait) left the status off-screen.
+// So the scale is re-opened at its state on every resize - until the reader
+// scrolls it themselves, after which it is never moved for them. Reader
+// scrolling is recognised by the gestures that start it, not by the scroll
+// position, because a resize can also move the position.
+/**
+ * Opens the scale at its state now, and returns the function to call on resize.
+ * @param {Element} scroller
+ * @returns {() => void}
+ */
+export function holdStateInView(scroller) {
+  let readerScrolled = false;
+  for (const gesture of ['wheel', 'pointerdown', 'touchstart']) {
+    scroller.addEventListener(gesture, () => { readerScrolled = true; }, { passive: true });
+  }
+  // Only the keys that scroll: Tab passing through the focused box is not a
+  // reader scrolling it.
+  const scrollKeys = new Set(['ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
+  scroller.addEventListener('keydown', (event) => {
+    if (event instanceof KeyboardEvent && scrollKeys.has(event.key)) readerScrolled = true;
+  });
+  const reopen = () => { if (!readerScrolled) openAtState(scroller); };
+  reopen();
+  return reopen;
 }
 
 // Marks a state terminus whose status is not the newest register snapshot's own, so
@@ -1206,7 +1234,9 @@ function buildDialLegend(present) {
   if (present.hasSightings) item('si', V1_COPY.callsign.dial.legendSighting);
   if (present.hasState) {
     const d = V1_COPY.callsign.dial;
-    // The sample is drawn like the terminus it decodes.
+    // The sample carries the terminus's own currency mark, so the stylesheet
+    // draws it in the terminus's shape and fill (callsign-dial-style.test.ts
+    // holds every legend sample to its mark).
     markStateCurrency(item('state', present.stateIsCurrent ? d.legendState : present.stateChecked ? d.legendLastRecordedState : d.legendUncheckedState), present.stateIsCurrent);
   }
   if (present.hasDisputed) item('disputed', V1_COPY.callsign.dial.legendDisputed);

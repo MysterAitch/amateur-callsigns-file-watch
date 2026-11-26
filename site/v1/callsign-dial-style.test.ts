@@ -29,7 +29,26 @@ const px = (decls: string, prop: string): number | null => {
   return m === null ? null : Number(m[1]) * (m[2] === 'rem' ? 16 : 1);
 };
 
+/**
+ * The shape and fill an element matching ALL of `cascade` (listed from least to
+ * most specific) is drawn with, taking the last declaration of each property in
+ * that order: a diamond is a square turned 45 degrees, a circle has a 50%
+ * radius, and a mark with a --panel fill is hollow.
+ */
+function markShape(cascade: string[]): string {
+  const decls = cascade.map(declarationsFor).join(';').split(';');
+  const last = (prop: string): string => decls.filter((d) => d.startsWith(`${prop}:`)).pop()?.slice(prop.length + 1) ?? '';
+  const form = last('transform').includes('rotate(45deg)') ? 'diamond' : last('border-radius') === '50%' ? 'circle' : 'square';
+  return `${last('background') === 'var(--panel)' ? 'hollow' : 'filled'} ${form}`;
+}
+
 describe('rules (the stylesheet reader itself)', { tags: ['unit'] }, () => {
+  it('MarkShape_TheEventMarkAndItsLegendSample_ReadAsFilledDiamonds', () => {
+    expect(markShape(['.scale .ev .dot'])).toBe('filled diamond');
+    expect(markShape(['.dial-legend .dl-mk', '.dial-legend .dl-mk.ev'])).toBe('filled diamond');
+    expect(markShape(['.dial-legend .dl-mk', '.dial-legend .dl-mk.si'])).toBe('filled circle');
+  });
+
   it('Rules_ARuleInsideAMediaBlockAndASelectorList_AreBothFound', () => {
     expect(declarationsFor('.status-row')).toContain('grid-template-columns:1fr');
     expect(declarationsFor('.tl .track::before')).not.toBe('');
@@ -57,6 +76,32 @@ describe('Callsign page stylesheet', { tags: ['ui'] }, () => {
       expect(decls, selector).toMatch(new RegExp(`(?:^|;)${prop}:`));
       expect(decls, selector).not.toContain('--ok');
     }
+  });
+
+  it('DialLegend_EachSample_HasTheShapeAndFillOfTheMarkItDecodes', () => {
+    // A legend that draws "last recorded" as a circle while the dial draws it as
+    // a diamond teaches the wrong reading.
+    const mark = (extra: string): string[] => ['.scale .ev .dot', `.scale .ev${extra} .dot`];
+    const sample = (cls: string): string[] => ['.dial-legend .dl-mk', `.dial-legend .dl-mk${cls}`];
+    const pairs: [string, string[], string[]][] = [
+      ['event', ['.scale .ev .dot'], sample('.ev')],
+      ['disputed', mark('.disputed'), sample('.disputed')],
+      ['current state', mark('.state'), sample('.state')],
+      ['last-recorded state', [...mark('.state'), `.scale .ev.state${LAST} .dot`], [...sample('.state'), `.dial-legend .dl-mk.state${LAST}`]],
+    ];
+    expect(Object.fromEntries(pairs.map(([name, m, s]) => [name, `${markShape(m)} / ${markShape(s)}`]))).toEqual({
+      event: 'filled diamond / filled diamond',
+      disputed: 'hollow diamond / hollow diamond',
+      'current state': 'filled circle / filled circle',
+      'last-recorded state': 'hollow circle / hollow circle',
+    });
+  });
+
+  it('LastRecordedState_AgainstADisputedEvent_DiffersInShapeNotOnlyInColour', () => {
+    // Both are hollow; outline colour alone told them apart, at 1.62:1 to each
+    // other. The state terminus is a circle, as on the event rail.
+    expect(markShape(['.scale .ev .dot', '.scale .ev.state .dot', `.scale .ev.state${LAST} .dot`])).toBe('hollow circle');
+    expect(markShape(['.scale .ev .dot', '.scale .ev.disputed .dot'])).toBe('hollow diamond');
   });
 
   it('CurrentState_OnTheDialTheRailAndTheLegend_KeepsTheGreen', () => {
