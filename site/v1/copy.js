@@ -172,6 +172,10 @@ export const V1_COPY = {
     anatomyLinkOut: 'The parts of a UK callsign, explained – the labelled diagram and the sourced facts',
     recordFidelityLabel: 'record fidelity',
     extrasLabel: 'related views & provenance',
+    // Follows the "Get the raw data" link on the callsign page. It must promise
+    // nothing how-to-get-the-raw-data.html does not offer; that page is the one
+    // place that says what is downloadable today.
+    rawDataLead: 'shows where the archived publications are kept, and the code that builds the databases from them.',
     // The dial's two track labels and their controls.
     dial: {
       eventLabel: 'Event time',
@@ -192,7 +196,7 @@ export const V1_COPY = {
       legendLabel: 'how to read it',
       legendEvent: 'an event – when something happened, as the record states it',
       legendSighting: 'a sighting – a publication that recorded this callsign, at its vintage',
-      legendState: 'current state – the latest status the mirror holds',
+      legendState: 'current state - the status the newest register snapshot held records for it',
       legendDisputed: 'disputed – held publications assert competing dates for a kind; every one is shown',
       microExample: 'Worked example: a diamond above the axis at 2018 says the record states that happened in 2018; a pip below at 2021 is a publication that recorded this callsign in 2021 – an event can predate the first sighting.',
       // Plain-English names for the tinted event kinds, keyed by kind id, so the
@@ -238,9 +242,17 @@ export const V1_COPY = {
       },
       // The current-state terminus suffix. Appended to the record's own latest
       // status value ('Allocated – current state') as the green node closing the
-      // event story on both the dial scale and the event rail. Record-scoped: it
-      // names the latest status the mirror holds, not a claim about the register.
+      // event story on both the dial scale and the event rail. Used only for the
+      // newest register snapshot's own status (see StatusCurrency in
+      // callsign-sections.js); record-scoped, not a claim about the register.
       currentStateLabel: 'current state',
+      // The same terminus when its status comes from a publication older than the
+      // newest one held: the last status the mirror holds, never presented as the
+      // present one (see StatusCurrency in callsign-sections.js).
+      lastRecordedStateLabel: 'last recorded',
+      scrollerLabel: 'The evidence: event time and assertion time on one year axis',
+      legendLastRecordedState: 'last recorded state: the latest status recorded for it in a register snapshot held, from a row other than the newest register snapshot\'s own',
+      legendUncheckedState: 'last recorded state: the latest status recorded for it in a register snapshot held, not checked against the newest register snapshot held',
       readingLead: 'Reading',
       calibrationLead: 'Calibration',
       calibrationNote: 'The sightings beneath are how the event story is evidenced. A callsign can exist before any held publication records it, so the earliest event may predate the first sighting.',
@@ -287,10 +299,51 @@ export const V1_COPY = {
       formatSplit: 'The written forms differ in format and status',
       statusDisagree: 'Two written forms disagree on status',
       gloss: 'The latest register snapshot lists this callsign more than once, with the rows differing on status. The record classifies the disagreement and adjudicates none of it.',
+      // Rows cleaning to one key with no status conflict between them (one
+      // blank, or both equal): listed as published, never merged silently.
+      sameKeyRows: 'The register snapshot dated {vintage} has more than one row that cleans to this callsign: {rows}. Each row is shown as published.',
     },
     // The regional-rendering note: a looked-up form resolved to the register's
     // core record. {cleaned} is the typed form; {key} the stored core.
     viaRenderingNote: '“{cleaned}” is a regional rendering; the register stores the core record {key} – the Regional Secondary Locator travels separately.',
+    // Which register snapshot a callsign's latest status row came from, and
+    // whether the callsign is in the newest register snapshot held (the one the
+    // site names, see StatusCurrency in callsign-sections.js). {publication} is
+    // the title, with its date when the title does not already carry it;
+    // {newest} is the newest register snapshot's date. Scope-aware like the
+    // per-publication history: absence from one publication is a non-observation,
+    // never a statement about the register.
+    currency: {
+      recordedIn: 'Status as recorded in {publication}.',
+      recordedInNewest: 'Status as recorded in {publication}, the newest register snapshot held.',
+      noStatusIn: '{publication} lists it with no status recorded.',
+      noStatusInNewest: 'The newest register snapshot held, {publication}, lists it with no status recorded.',
+      listedInNewest: 'Listed in the newest register snapshot held, dated {newest}.',
+      notInNewest: 'Not in the newest register snapshot held, dated {newest}.',
+      lastHeld: 'This is the last status recorded for it in a register snapshot held, not a reading of the register today.',
+      absence: 'Absence from one publication is never evidence about the register.',
+      newestUnknown: 'Whether that is the newest register snapshot held could not be checked.',
+    },
+    // What was typed against what was looked up (see LookupInput in
+    // callsign-sections.js): nothing the cleaning rule drops or changes goes
+    // unsaid.
+    lookup: {
+      entered: 'You entered "{entered}". This page looked up {lookedUp}.',
+      spacesIgnored: 'Spaces are ignored.',
+      changed: 'Read as plain capitals: {pairs}.',
+      changedPair: '{from} as {to}',
+      leftOut: 'Left out: {chars}, because a lookup matches only the letters A to Z, the digits 0 to 9, and /.',
+      truncated: '({length} characters; the first {shown} are shown.)',
+      nothingToLookUp: '"{entered}" has no letters A to Z or digits 0 to 9 in it, so there is nothing to look up. A callsign is made of the letters A to Z, the digits 0 to 9, and sometimes /.',
+      statusLookingUp: 'Looking up...',
+      headingNothingToLookUp: 'Nothing to look up',
+      statusNothingToLookUp:'Nothing to look up: no letters A to Z or digits 0 to 9 were entered.',
+      statusCouldNotLookUp: 'Could not look this up.',
+      unrecognisedShape: '{lookedUp} is not shaped like a callsign this page recognises: a callsign combines letters with at least one digit, as in M7TEE.',
+      operatingSuffix: '{lookedUp} ends in what looks like an operating suffix (/{suffix}). ',
+      operatingSuffixTry: 'Look up {base} instead',
+      noRecord: 'No record for {lookedUp} in any of the publications this mirror holds. Absence here is never evidence about the register – this mirror holds only what has been published or disclosed.',
+    },
     // Blank-but-present value wording (never a bare em dash).
     noStatusRecorded: '(no status recorded)',
     noProductRecorded: '(no product recorded – many legitimate allocations carry a blank product)',
