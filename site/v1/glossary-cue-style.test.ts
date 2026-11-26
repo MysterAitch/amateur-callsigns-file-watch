@@ -41,9 +41,22 @@ describe('Glossary "?" cue stylesheet', { tags: ['ui'] }, () => {
 
   it('GlossaryCue_LargerTarget_KeepsTheSmallRingAndTakesNoMoreRoomInItsLine', () => {
     // The ring is drawn at its old size, and negative margins give back the
-    // extra room, so no line around a cue deepens or rewraps.
+    // extra room, so no line around a cue deepens or rewraps: vertically half
+    // each side, horizontally all of it (4px before plus the rest after).
     expect(declarationsFor(`${SUMMARY}::before`)).toMatch(/width:1\.05em;height:1\.05em/);
     expect(declarationsFor(`${SUMMARY}::before`)).toContain('border-radius:50%');
-    expect(declarationsFor(SUMMARY)).toContain('margin:calc((1.05em-24px)/2)');
+    expect(declarationsFor(SUMMARY)).toContain('margin:calc((1.05em-24px)/2)calc(1.05em-20px)calc((1.05em-24px)/2)-4px');
+  });
+
+  it('GlossaryCue_Target_ReachesBackNoMoreThanTheSpaceBeforeItAndNotAtAllInAChip', () => {
+    // Centred on the ring, the square covered the whole letter before the cue,
+    // so a click on that letter opened the definition instead of selecting it.
+    expect(declarationsFor(SUMMARY)).toMatch(/-4px;/);
+    expect(declarationsFor('.ax>.term.cue>summary')).toContain('margin-left:0;margin-right:calc(1.05em-24px)');
+    expect(declarationsFor('.ax>.term.cue>summary::before')).toContain('left:calc(1.05em/2)');
+    // The ring and glyph stay where they were: padded 4px in from the
+    // square's left edge, the ring centred on the glyph's old box.
+    expect(declarationsFor(SUMMARY)).toContain('padding:0calc(20px-1.05em)04px');
+    expect(declarationsFor(`${SUMMARY}::before`)).toContain('left:calc(4px+1.05em/2)');
   });
 });
