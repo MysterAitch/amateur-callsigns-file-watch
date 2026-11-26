@@ -49,6 +49,10 @@ function skipLinkFaults(doc: Document): string[] {
   const target = doc.getElementById(href.slice(1));
   if (target === null) faults.push(`skip link target ${href} does not exist`);
   else if (target.tagName !== 'MAIN') faults.push(`skip link target ${href} is a ${target.tagName}, not the main landmark`);
+  // Focus must move to the target, not only the viewport: without tabindex a
+  // landmark is not focusable, focus stays on the body, and where the next Tab
+  // lands is left to each browser's sequential-navigation starting point.
+  else if (target.getAttribute('tabindex') !== '-1') faults.push(`skip link target ${href} is not programmatically focusable (tabindex="-1")`);
   if (doc.querySelectorAll('main').length !== 1) faults.push(`page has ${doc.querySelectorAll('main').length} main elements`);
   if ((first.textContent ?? '').trim() === '') faults.push('skip link has no text');
   return faults;
@@ -56,7 +60,11 @@ function skipLinkFaults(doc: Document): string[] {
 
 describe('skipLinkFaults (the checker itself, on constructed pages)', { tags: ['unit'] }, () => {
   it('SkipLinkFaults_WhenTheSkipLinkIsFirstAndLandsOnMain_ReportsNothing', () => {
-    expect(skipLinkFaults(parse('<a class="skip" href="#main">Skip to content</a><nav><a href="x">X</a></nav><main id="main"></main>'))).toEqual([]);
+    expect(skipLinkFaults(parse('<a class="skip" href="#main">Skip to content</a><nav><a href="x">X</a></nav><main id="main" tabindex="-1"></main>'))).toEqual([]);
+  });
+
+  it('SkipLinkFaults_WhenTheMainLandmarkCannotTakeFocus_ReportsIt', () => {
+    expect(skipLinkFaults(parse('<a class="skip" href="#main">Skip</a><main id="main"></main>'))).toEqual(['skip link target #main is not programmatically focusable (tabindex="-1")']);
   });
 
   it('SkipLinkFaults_WhenANavLinkPrecedesIt_ReportsTheFirstFocusable', () => {
@@ -64,7 +72,7 @@ describe('skipLinkFaults (the checker itself, on constructed pages)', { tags: ['
   });
 
   it('SkipLinkFaults_WhenItSitsInsideTheRemountedHeaderHost_ReportsIt', () => {
-    expect(skipLinkFaults(parse('<div id="sitebar"><a class="skip" href="#main">Skip</a></div><main id="main"></main>'))).toEqual(['skip link is not a direct child of body, so a shell re-mount can remove it']);
+    expect(skipLinkFaults(parse('<div id="sitebar"><a class="skip" href="#main">Skip</a></div><main id="main" tabindex="-1"></main>'))).toEqual(['skip link is not a direct child of body, so a shell re-mount can remove it']);
   });
 
   it('SkipLinkFaults_WhenTheTargetIsMissingOrNotMain_ReportsEach', () => {
@@ -86,7 +94,8 @@ describe('v1 shell - skip link on every page', { tags: ['ui'] }, () => {
   it('V1Pages_WhenFirstTabbedInto_OfferASkipLinkThatLandsOnTheMainLandmark', () => {
     const checked = PAGES.filter((p) => !BASE_HREF_PAGES.has(p));
     assertNonEmpty(checked, 'pages with a skip link');
-    for (const page of checked) expect(skipLinkFaults(parse(read(page))), page).toEqual([]);
+    // Every page's faults at once, so one failing page does not hide the next.
+    expect(Object.fromEntries(checked.map((page) => [page, skipLinkFaults(parse(read(page)))]).filter(([, f]) => f.length > 0))).toEqual({});
   });
 
   it('NotFoundPage_BecauseItResolvesFragmentsAgainstItsBaseHref_CarriesNoSkipLinkThatWouldLeaveThePage', () => {
@@ -104,10 +113,22 @@ describe('v1 shell - skip link on every page', { tags: ['ui'] }, () => {
       const m = new RegExp(`(?:^|\\})\\s*${selector.source}\\s*\\{([^}]*)\\}`, 'm').exec(css);
       return m?.[1] ?? '';
     };
+    const top = (decls: string): number | null => {
+      const m = /(?:^|;)\s*top:(-?[\d.]+)(px|rem)/.exec(decls);
+      return m === null ? null : Number(m[1]) * (m[2] === 'rem' ? 16 : 1);
+    };
+    // At rest it sits above the top of the page, wholly off-screen.
     expect(rule(/\.skip/)).toMatch(/position:absolute/);
+    expect(top(rule(/\.skip/)) ?? 0).toBeLessThan(-40);
     // Shown on any focus, not only :focus-visible, so a pointer user who tabs
-    // after clicking still sees where focus is.
-    expect(rule(/\.skip:focus/)).not.toBe('');
+    // after clicking still sees where focus is: focused, it comes back on screen.
+    expect(top(rule(/\.skip:focus/)) ?? -1).toBeGreaterThanOrEqual(0);
+  });
+
+  it('ShellStylesheet_MainLandmarkFocusedBySkipLink_DrawsNoOutlineRoundThePage', () => {
+    // Focus lands on main so the next Tab starts there; it is not a control, so
+    // it is not outlined.
+    expect(read('shell.css')).toMatch(/(?:^|\})\s*main\[tabindex="-1"\]:focus\s*\{[^}]*outline:none/m);
   });
 });
 
@@ -175,7 +196,8 @@ describe('v1 shell - headings on every page', { tags: ['ui'] }, () => {
   beforeEach(() => { document.body.replaceChildren(); });
 
   it('V1Pages_AsServed_GiveAnOutlineOfSectionHeadingsUnderOneTitle', () => {
-    for (const page of PAGES) expect(outlineFaults(parse(read(page)).body, { h1: 1 }), page).toEqual([]);
+    // Every page's faults at once, so one failing page does not hide the next.
+    expect(Object.fromEntries(PAGES.map((page) => [page, outlineFaults(parse(read(page)).body, { h1: 1 })]).filter(([, f]) => f.length > 0))).toEqual({});
   });
 
   it('HomePage_WhenItsScriptRendersTheSections_EverySectionLabelIsAHeading', () => {
@@ -245,8 +267,9 @@ describe('v1 shell - a description on every page', { tags: ['ui'] }, () => {
     assertNonEmpty([...all.keys()], 'pages with descriptions');
     for (const [page, text] of all) {
       expect(text.length, page).toBeGreaterThanOrEqual(50);
-      // Search results and link previews cut longer text mid-sentence.
-      expect(text.length, page).toBeLessThanOrEqual(180);
+      // Search results and link previews cut text at about 155 to 160
+      // characters, mid-sentence.
+      expect(text.length, page).toBeLessThanOrEqual(155);
     }
     expect(new Set(all.values()).size).toBe(all.size);
   });

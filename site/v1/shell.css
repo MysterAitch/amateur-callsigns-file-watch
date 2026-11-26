@@ -32,6 +32,11 @@ a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible{
 .skip{position:absolute;left:.5rem;top:-10rem;z-index:20;padding:.5rem .8rem;background:var(--panel);
   color:var(--signal-strong);border:1px solid var(--signal-dim);border-radius:2px;font-family:var(--mono);font-size:14px}
 .skip:focus{top:.5rem;outline:2px solid var(--signal);outline-offset:2px}
+/* The skip link moves focus to main (tabindex="-1"), so the next Tab starts
+   inside the content in every browser rather than wherever that browser keeps
+   its sequential-navigation starting point. main is not a control, so it is not
+   outlined. */
+main[tabindex="-1"]:focus{outline:none}
 
 /* ---- full-width WHITE header + footer bars (the v1 chrome) ---------------
    These replace the mockups' in-flow .topbar/footer: a white bar spanning the
