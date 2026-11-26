@@ -916,14 +916,23 @@ export function syncScrollerFocus(scroller) {
   else scroller.removeAttribute('tabindex');
 }
 
-// The dial's scale reads left to right from the earliest year, and its newest
-// reading (the state terminus) is at the right-hand end. A scale that scrolls
-// opened at the earliest year, so on a phone the status the page is about began
-// off-screen. Call once after layout, not on resize, so a reader's own
-// scrolling is never undone.
+// A scale that scrolls opened at its earliest year, so on a phone the status
+// the page is about began off-screen. It now opens with the state terminus
+// centred, as far as the scale allows. Not simply at the right-hand end: a
+// future-dated event (GB2RS's reservation window ends 2099-12-31) can sit far
+// to the right of a terminus dated years earlier, and the right-hand end then
+// hides the status. With no terminus drawn, it opens at the newest end. Call
+// once after layout, not on resize, so a reader's own scrolling is never undone.
 /** @param {Element} scroller */
-export function openAtNewestEnd(scroller) {
-  scroller.scrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+export function openAtState(scroller) {
+  const max = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+  const state = scroller.querySelector('.ev.state');
+  if (state === null) {
+    scroller.scrollLeft = max;
+    return;
+  }
+  const x = state.getBoundingClientRect().left - scroller.getBoundingClientRect().left + scroller.scrollLeft;
+  scroller.scrollLeft = Math.min(max, Math.max(0, x - scroller.clientWidth / 2));
 }
 
 // Marks a state terminus whose status is not the newest register snapshot's own, so
@@ -1387,7 +1396,7 @@ function mountEvidenceDial(host, model) {
   // scroller, opening it at its newest end pushed the track labels, the clock
   // buttons and the legend out of view to the left. The scroller is named; it
   // takes keyboard focus only while it scrolls (syncScrollerFocus) and opens at
-  // its newest end (openAtNewestEnd), both from the page script after layout.
+  // its state terminus (openAtState), both from the page script after layout.
   const scroller = el('div', 'dial-scroll');
   scroller.setAttribute('role', 'group');
   scroller.setAttribute('aria-label', V1_COPY.callsign.dial.scrollerLabel);

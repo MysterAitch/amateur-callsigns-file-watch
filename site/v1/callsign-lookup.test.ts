@@ -14,7 +14,7 @@ import {
   boundedQuery,
   callsignPageTitle,
   syncScrollerFocus,
-  openAtNewestEnd,
+  openAtState,
   QUERY_DISPLAY_MAX,
 } from './callsign-sections.js';
 // The real shared functions the deployed page loads at runtime, so the
@@ -527,17 +527,29 @@ describe('Callsign page: structure and wording', { tags: ['ui'] }, () => {
     expect(dial?.hasAttribute('tabindex')).toBe(false);
   });
 
-  for (const [scrollWidth, clientWidth, opensAt] of [[638, 291, 347], [940, 940, 0], [600, 940, 0]] as const) {
-    it(`DialScroller_ContentWidth${scrollWidth}InABox${clientWidth}Wide_OpensScrolledTo${opensAt}`, () => {
-      // The newest reading (the state terminus) is at the right-hand end, so a
-      // scrolling scale opens there rather than at the earliest year.
+  // [state terminus x within the scale, or null for none, scale width, box width, opens at]
+  for (const [stateX, scrollWidth, clientWidth, opensAt] of [
+    [620, 638, 291, 347],   // terminus at the right-hand end (M7TEE at 375 wide): the far end
+    [40, 638, 291, 0],      // terminus at the left, with a future-dated event far to its right (GB2RS)
+    [320, 638, 291, 174.5], // terminus in the middle: centred in the box
+    [null, 638, 291, 347],  // no terminus drawn: the newest end
+    [620, 940, 940, 0],     // nothing scrolls
+  ] as const) {
+    it(`DialScroller_StateAt${stateX ?? 'None'}InA${scrollWidth}ScaleIn${clientWidth}Box_OpensScrolledTo${opensAt}`, () => {
+      // The page is about the status, so a scrolling scale opens with the state
+      // terminus in view, not at the earliest year.
       const scroller = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('.dial-scroll');
       if (scroller === null) throw new Error('no dial scroller');
+      const state = scroller.querySelector('.ev.state');
+      if (stateX === null) state?.remove();
+      else if (state === null) throw new Error('no state terminus');
+      // jsdom does no layout: the box sits at x=10 on the page, unscrolled.
       Object.defineProperty(scroller, 'scrollWidth', { value: scrollWidth });
       Object.defineProperty(scroller, 'clientWidth', { value: clientWidth });
-      // jsdom does no layout, so scrolling is a plain property here.
       Object.defineProperty(scroller, 'scrollLeft', { value: 0, writable: true });
-      openAtNewestEnd(scroller);
+      scroller.getBoundingClientRect = () => DOMRect.fromRect({ x: 10, y: 0, width: clientWidth, height: 200 });
+      if (stateX !== null && state !== null) state.getBoundingClientRect = () => DOMRect.fromRect({ x: 10 + stateX, y: 0, width: 0, height: 0 });
+      openAtState(scroller);
       expect(scroller.scrollLeft).toBe(opensAt);
     });
   }
