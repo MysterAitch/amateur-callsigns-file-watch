@@ -2451,10 +2451,11 @@ describe('v1 round-4 fixes and minors (issue #921)', { tags: ['ui'] }, () => {
   });
 
   it('MobileDial_Stylesheet_SignalsHorizontalScrollAndGivesControls44pxTouchTargets', () => {
-    // A5: the instrument scrolls horizontally on a narrow viewport. Edge shadows
-    // (background-attachment:local) make that scroll discoverable, and the
-    // highlight controls become ≥44px touch targets on small screens.
-    expect(shellCss).toMatch(/\.dial\{[^}]*background-attachment:local,local,scroll,scroll[^}]*\}/);
+    // A5: the instrument's scale scrolls horizontally on a narrow viewport. Edge
+    // shadows (background-attachment:local) on that scroller make the scroll
+    // discoverable, and the highlight controls become ≥44px touch targets on
+    // small screens.
+    expect(shellCss).toMatch(/\.dial-scroll\{[^}]*background-attachment:local,local,scroll,scroll[^}]*\}/);
     expect(shellCss).toMatch(/\.dial-ctl button\{min-height:44px/);
   });
 });
