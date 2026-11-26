@@ -17,12 +17,19 @@
   .dl .row h3{margin:0 0 .3rem;font-size:1.02rem}
   .dl .row p{margin:0;color:var(--ink-2);font-size:.92rem}
   .dl .row .meta{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.02em;margin-top:.3rem}
+  /* A row whose download is not linked from these pages says so in words, in
+     the row itself, so an unlinked heading never reads as a broken link. */
+  .dl .row .absent{margin-top:.35rem;font-weight:600;color:var(--ink)}
+  /* Section labels are headings for the outline, styled as the shared label. */
+  h2.lbl{font-weight:400}
 </style>
 </head>
 <!-- Hand-authored static page. Every archived publication is preserved in the
-     open repository, so the raw data is fetched from there rather than from any
-     surface not yet migrated here. The header, nav and footer read with
-     JavaScript off; raw-data.js only re-mounts the shared chrome. -->
+     open repository, so the raw data is fetched from there. A built download
+     these pages do not link yet is listed with a plain "published, not linked
+     from these pages yet" line rather than left out or left as a bare heading;
+     raw-data.test.ts holds every row to one or the other. The header, nav and footer read with JavaScript
+     off; raw-data.js only re-mounts the shared chrome. -->
 <body>
 
 <div id="sitebar">
@@ -54,16 +61,16 @@
 
     <header class="head">
       <h1>callsign-record<span class="path"> / get the raw data</span></h1>
-      <p class="lede" style="font-size:1.3rem">Every archived publication, preserved byte-for-byte in the open repository – and the databases folded from them.</p>
-      <p class="note">The mirror preserves each publication exactly as published. Nothing is derived beyond what the sources state; every derived database carries provenance to the byte. The archived files and the code that folds them – the build step that assembles each database from the raw files – are in the public repository. The bundled downloads and the in-browser query surfaces are being migrated to this site; where a surface has not moved here yet, this page points to the repository rather than anywhere off this site.</p>
+      <p class="lede" style="font-size:1.3rem">Every archived publication, preserved byte-for-byte in the open repository, with the code that builds the databases from it.</p>
+      <p class="note">The mirror preserves each publication exactly as published. Nothing is derived beyond what the sources state; every derived database carries provenance to the byte. The archived files and the code that folds them – the build step that assembles each database from the raw files – are in the public repository on GitHub; each repository link below opens in a new tab. The databases, the per-publication downloads, and the claim ledger are built and published with each build of this site, but are not linked from these pages yet: each is listed below, marked as such, with where its builder lives.</p>
     </header>
 
-    <div class="lbl">browse the archive</div>
+    <h2 class="lbl">browse the archive</h2>
     <div class="dl">
       <div class="row">
         <h3><a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/archive" target="_blank" rel="noopener">The archive, in the repository</a></h3>
-        <p>Every archived dataset in both collections – Ofcom open-data publications and FOI requests – with the raw, extract and normalised files preserved verbatim. Each entry carries its <code>meta.json</code> (a sha256 for every file) and a Frictionless <code>datapackage.json</code> beside the raw bytes.</p>
-        <p class="meta">per-entry: raw files · datapackage.json · meta.json</p>
+        <p>Every archived dataset in both collections, Ofcom open-data publications and FOI requests, with its files preserved verbatim. Extract and normalised files sit beside the raw files where they were derived and committed; not every entry has them, and an FOI entry may hold its correspondence with no data at all. Each entry carries its <code>meta.json</code>, which records a sha256 for every file, and each FOI entry its <code>correspondence.md</code>. The files can be fetched one at a time from there.</p>
+        <p class="meta">per-entry: raw files · meta.json · correspondence (FOI) · derived files where committed</p>
       </div>
       <div class="row">
         <h3><a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/reference-data" target="_blank" rel="noopener">Reference data &amp; schemas</a></h3>
@@ -71,12 +78,19 @@
       </div>
     </div>
 
-    <div class="lbl">whole-corpus databases</div>
+    <h2 class="lbl">built downloads</h2>
     <div class="dl">
       <div class="row">
-        <h3>combined SQLite &amp; the FOI observations union</h3>
-        <p>One SQLite database of everything – the FOI observations union plus every open-data publication’s normalised rows – and the flat union CSV, are produced at build time by the folding code in the repository. These bundled downloads are being migrated to this site; until then, the builder that produces them is open in the repository.</p>
-        <p class="meta">SQLite · CSV · gzipped – migrating</p>
+        <h3>The combined SQLite database and the FOI observations union</h3>
+        <p>One SQLite database of everything – the FOI observations union plus every open-data publication’s normalised rows – and the flat union CSV. Both are built from the archive by the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/src/ci/build-sqlite.ts" target="_blank" rel="noopener">download builder</a> in the repository, so they can be rebuilt from the archived files.</p>
+        <p class="meta">SQLite · CSV · gzipped</p>
+        <p class="absent">Published with each build of this site, but not linked from these pages yet.</p>
+      </div>
+      <div class="row">
+        <h3>Per-publication SQLite databases and zips</h3>
+        <p>For each archived publication, one SQLite database with a table per CSV, and one zip of the entry’s files with its Frictionless <code>datapackage.json</code> descriptor. Both are built at publish time, by the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/src/ci/build-sqlite.ts" target="_blank" rel="noopener">download builder</a> and the <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/src/ci/build-dataset-pages.ts" target="_blank" rel="noopener">per-entry builder</a>; the <code>datapackage.json</code> descriptors are not committed to the repository. Until they are linked here, an entry’s own files can be fetched one at a time from the archive above.</p>
+        <p class="meta">SQLite · zip · per publication</p>
+        <p class="absent">Published with each build of this site, but not linked from these pages yet.</p>
       </div>
       <div class="row">
         <h3><a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/src" target="_blank" rel="noopener">The folding code</a></h3>
@@ -84,11 +98,13 @@
       </div>
     </div>
 
-    <div class="lbl">the claim ledger &amp; provenance</div>
+    <h2 class="lbl">the claim ledger &amp; provenance</h2>
     <div class="dl">
       <div class="row">
-        <h3>the raw-keyed claim ledger</h3>
-        <p>Every value the mirror derives traces to the source byte that asserts it – one record per raw byte, every derivation rule and every source row behind a value. The interactive ledger is being migrated to this site; the ledger data and its builder are open in the repository.</p>
+        <h3>The raw-keyed claim ledger</h3>
+        <p>Every value the mirror derives traces to the source byte that asserts it – one record per raw byte, every derivation rule and every source row behind a value. The ledger is built at publish time and is not committed to the repository; its <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/tree/main/src/v2" target="_blank" rel="noopener">builder</a> is. The ledger database and a page for querying it are published with each build of this site, but neither is linked from these pages yet.</p>
+        <p class="meta">SQLite · built at publish time</p>
+        <p class="absent">Published with each build of this site, but not linked from these pages yet.</p>
       </div>
       <div class="row">
         <h3><a href="https://github.com/MysterAitch/amateur-callsigns-file-watch" target="_blank" rel="noopener">The project repository</a></h3>
@@ -96,7 +112,7 @@
       </div>
     </div>
 
-    <div class="lbl">licensing &amp; attribution</div>
+    <h2 class="lbl">licensing &amp; attribution</h2>
     <section class="surface">
       <p>This project’s own code and original documentation are released under the
       <a href="https://github.com/MysterAitch/amateur-callsigns-file-watch/blob/main/LICENSE" target="_blank" rel="noopener">MIT licence</a>.
