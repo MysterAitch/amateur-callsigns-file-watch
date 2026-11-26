@@ -984,6 +984,14 @@ function fillTemplateNodes(tpl, vars) {
     last = (m.index ?? 0) + m[0].length;
   }
   out.push(tpl.slice(last));
+  // A value ending in the "..." of a bounded query already ends the sentence,
+  // so a template's own full stop straight after it is dropped rather than
+  // printed as a fourth dot.
+  for (let i = 1; i < out.length; i += 1) {
+    const prev = out[i - 1];
+    const cur = out[i];
+    if (typeof prev === 'string' && prev.endsWith('...') && typeof cur === 'string' && cur.startsWith('.')) out[i] = cur.slice(1);
+  }
   return out.filter((p) => p !== '');
 }
 

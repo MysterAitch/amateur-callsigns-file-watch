@@ -288,6 +288,12 @@ describe('Callsign page: input that is not a held callsign', { tags: ['ui'] }, (
     expect(root.querySelector('a[href^="callsign.html?c="]')).toBeNull();
   });
 
+  it('FastAnswer_OverlongKeyWithALetterLeftOut_EndsTheLookedUpSentenceWithOneEllipsisNotFourDots', () => {
+    const text = render(null, ARCHIVE, `${'A'.repeat(300)}É`).querySelector('.lookup-input')?.textContent ?? '';
+    expect(text).toContain(`This page looked up ${'A'.repeat(QUERY_DISPLAY_MAX)}... Left out:`);
+    expect(text).not.toContain('....');
+  });
+
   it('FastAnswer_OverlongQuery_HeadingShowsABoundedFormAndSaysHowLongTheInputWas', () => {
     const root = render(null, ARCHIVE, 'A'.repeat(300));
     expect(root.querySelector('h1')?.textContent).toBe(`${'A'.repeat(QUERY_DISPLAY_MAX)}...`);
