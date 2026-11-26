@@ -147,7 +147,7 @@ export const V1_COPY = {
       },
       rawData: {
         name: 'Get the raw data',
-        say: 'Every archived publication is preserved byte-for-byte in the open repository, with provenance carried to the byte. See how to download the files and the databases built from them.',
+        say: 'Every archived publication is preserved byte-for-byte in the open repository, with provenance carried to the byte. See where to find the files, and how the databases are built from them.',
       },
     },
   },

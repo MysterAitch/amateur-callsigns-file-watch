@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import * as fs from 'node:fs';
 import {
   V1_COPY,
   V1_COPY_STRINGS,
@@ -82,6 +83,21 @@ describe('v1 copy — claims bar (JS)', { tags: ['unit'] }, () => {
     expect(V1_COPY.home.trust).toContain('copied straight from one dated file');
     expect(V1_COPY.home.cards.rawData.say).not.toContain('folded');
     expect(V1_COPY.home.cards.rawData.say).toContain('built from them');
+  });
+
+  it('WaysInRawDataCard_PromisesOnlyWhatTheRawDataPageDelivers', () => {
+    // The raw-data page links the archived files and the code that builds the
+    // databases; it does not link a download of any built database yet. The
+    // card must not send readers there for one, and the page as served must
+    // say the same thing as the registry the script renders (the two had
+    // drifted to "built" and "folded").
+    const say = V1_COPY.home.cards.rawData.say;
+    expect(say.toLowerCase()).not.toContain('download');
+    // This suite runs without a DOM, so the served card is read by pattern: the
+    // raw-data card's own say paragraph, the next one after the card's name
+    // link (the nav carries the same href earlier in the page).
+    const served = /class="name"><a href="how-to-get-the-raw-data\.html"[^]*?<p class="say">([^<]*)<\/p>/.exec(fs.readFileSync('site/v1/index.html', 'utf8'));
+    expect(served?.[1]).toBe(say);
   });
 
   it('GlossaryRegistry_RslAndSuffix_AcknowledgeTheirVariants', () => {

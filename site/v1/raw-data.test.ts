@@ -19,26 +19,41 @@ function servedDocument(): Document {
 }
 
 describe('raw-data page - what it offers is what is here', { tags: ['ui'] }, () => {
-  it('RawDataPage_EveryDownloadRow_EitherLinksOrSaysThereIsNoLinkHereYet', () => {
+  it('RawDataPage_EveryDownloadRow_EitherLinksOrSaysItIsPublishedButNotLinkedHere', () => {
+    // The built files ARE published with each build of the site; the honest
+    // gap is that these pages do not link them. "No download link on this
+    // site" read as "not published", which is untrue.
     const rows = [...servedDocument().querySelectorAll('.dl .row')];
     expect(rows.length).toBeGreaterThan(0);
     const unaccounted = rows.filter((row) => {
       const linked = row.querySelector('h3 a[href]') !== null;
-      const statesAbsence = /no download link on this site yet/i.test(norm(row.querySelector('.absent')?.textContent));
+      const absence = norm(row.querySelector('.absent')?.textContent);
+      const statesAbsence = /published with each build of this site/i.test(absence) && /not linked from these pages yet/i.test(absence);
       return linked === statesAbsence;
     });
     expect(unaccounted.map((r) => norm(r.querySelector('h3')?.textContent))).toEqual([]);
+    expect(norm(servedDocument().querySelector('main')?.textContent)).not.toMatch(/no download link on this site|linked from this site yet/i);
   });
 
-  it('RawDataPage_WhatTheWayInPromises_IsEachNamedOnThePage', () => {
-    // The home and callsign pages send readers here for "the databases",
-    // "per-entry zips", "the SQLite tiers" and "the claim ledger". Each must be
-    // named on arrival, linked or plainly marked as not linked yet, rather than
-    // missing.
-    const text = norm(servedDocument().querySelector('main')?.textContent).toLowerCase();
-    for (const promised of ['combined sqlite', 'per-publication sqlite', 'zip', 'claim ledger']) {
-      expect(text, promised).toContain(promised);
+  it('RawDataPage_WhatTheWayInPromises_EachHasItsOwnRow', () => {
+    // The home and callsign pages send readers here for the databases, the
+    // per-entry zips, the SQLite tiers and the claim ledger. Each must have a
+    // row of its own, found by its heading: matching the page text alone let
+    // "gzipped" stand in for a missing zips row.
+    const headings = [...servedDocument().querySelectorAll('.dl .row h3')].map((h) => norm(h.textContent).toLowerCase());
+    for (const promised of [['combined sqlite'], ['per-publication sqlite', 'zips'], ['claim ledger']]) {
+      expect(headings.some((h) => promised.every((p) => h.includes(p))), promised.join(' + ')).toBe(true);
     }
+  });
+
+  it('RawDataPage_NewTabStatement_ClaimsItOnlyForRepositoryLinks', () => {
+    // Nav and breadcrumb links open in the same tab, so a sentence about
+    // "every link on this page" would be false.
+    const text = norm(servedDocument().querySelector('main')?.textContent);
+    expect(text).not.toMatch(/every link on this page opens in a new tab/i);
+    const repositoryLinks = [...servedDocument().querySelectorAll('main .dl a[href^="https://github.com/"], main .surface a[href^="https://github.com/"]')];
+    expect(repositoryLinks.length).toBeGreaterThan(0);
+    expect(repositoryLinks.filter((a) => a.getAttribute('target') !== '_blank')).toEqual([]);
   });
 
   it('RawDataPage_RepositoryLinks_EachNameAPathTheRepositoryHolds', () => {
