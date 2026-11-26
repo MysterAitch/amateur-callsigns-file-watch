@@ -9,7 +9,7 @@ people who hold the callsigns.*
 Every claim below carries one of three tags — **[observed]**, **[derived]**,
 or **[hypothesis]** — so you can tell at a glance what kind of statement it is
 and check it yourself. Select any tag to see its full definition in the
-[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/glossary.html#epistemics).
+[glossary](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/glossary.html#epistemics).
 **[observed]** here means read directly off a held FOI letter, its verbatim
 raw-text extract, or a register export in this archive; **[derived]** means
 combined from more than one held source under a rule stated on the spot. One
@@ -64,7 +64,7 @@ The open-data page followed.
 2014 request about historic callsign series, Ofcom pleaded cost and explained
 why the older data was hard to reach — the sentence doubles as a statement of
 system history (Ofcom reference `1-274894363`, 18 December 2014; browse the
-[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-238892--out-of-sequence-callsigns/raw-extract-call-signs-series-before-ww2.md.html)):
+[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-238892--out-of-sequence-callsigns/raw-extract-call-signs-series-before-ww2.md.html)):
 
 > All licences were re-issued in 2007 in a new format. Where we hold the
 > previous information it is in paper format, which would take a considerable
@@ -72,7 +72,7 @@ system history (Ofcom reference `1-274894363`, 18 December 2014; browse the
 
 Ofcom restated the go-live date in a second 2014 refusal on a neighbouring
 request (browse the
-[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-238892--out-of-sequence-callsigns/raw-extract-response-callsigns-out-of-sequential-order-181214.md.html)):
+[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-238892--out-of-sequence-callsigns/raw-extract-response-callsigns-out-of-sequential-order-181214.md.html)):
 
 > Our current database went live in 2007 and all licences were re-issued at
 > this point in a new format.
@@ -108,7 +108,7 @@ all callsigns and their status (Ofcom reference `337399`, 29 September 2016 —
 note the plain numeric reference, no longer the `1-XXXXXXXXX` form), Ofcom
 explained why it could no longer supply a list of *available* callsigns
 (browse the
-[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html)):
+[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/raw-extract-all-call-sign-list-nan-smith.md.html)):
 
 > We do not hold a list of call signs that are available. Due to a system
 > change, the assignment of call signs is now done using an algorithm rather
@@ -120,11 +120,11 @@ requesters had been asking for since 2013 was, from a system change around
 reader to the last of the old lists — the July 2016 "historic available call
 sign list" (Ofcom reference `285990`, applicable from 29 June 2016), held here
 as
-[`ofcom-285990--available-list-jun-2016`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-285990--available-list-jun-2016/index.html).
+[`ofcom-285990--available-list-jun-2016`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-285990--available-list-jun-2016/index.html).
 It is also this snapshot — the
-[full disclosure Nan Smith received](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/index.html),
+[full disclosure Nan Smith received](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-356636--all-callsigns-plus-forbidden/index.html),
 mirrored again as Ofcom's own
-[published copy](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-337399--all-callsigns-published-copy/index.html) —
+[published copy](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-337399--all-callsigns-published-copy/index.html) —
 that carries the standing licence-type caveat every register export since has
 inherited:
 
@@ -137,7 +137,7 @@ inherited:
 **[observed]** A July 2017 request asked directly what system Ofcom had moved
 to. The response letter (created 11 September 2017, no reference number on its
 face; browse the
-[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2017-07-03--all-callsigns-with-status/raw-extract-amatuer-radio-callsigns.md.html))
+[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-2017-07-03--all-callsigns-with-status/raw-extract-amatuer-radio-callsigns.md.html))
 answers it twice, and then sets out the fullest description of the
 assignment algorithm anywhere in the archive:
 
@@ -236,7 +236,7 @@ request; none was published for reuse.
 **[observed]** When Mr James asked a second time in January 2015, Ofcom refused
 under section 14(2) of the FOI Act — the repeat-request exemption — pointing
 him at an earlier published answer (from the
-[refusal in `wdtk-247308`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-247308--available-callsigns-list/correspondence.md.html)):
+[refusal in `wdtk-247308`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-247308--available-callsigns-list/correspondence.md.html)):
 
 > We consider that it is reasonable to request an up to date list after 6
 > months has elapsed since information on this area has been publicly
@@ -244,7 +244,7 @@ him at an earlier published answer (from the
 
 **[observed]** He asked for an internal review, arguing the data changed far
 faster than six months. Ofcom's review conceded the point (browse the
-[rendered outcome letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-247308--available-callsigns-list/raw-extract-2015-03-27-response-to-mr-james-irfinal.md.html)):
+[rendered outcome letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-247308--available-callsigns-list/raw-extract-2015-03-27-response-to-mr-james-irfinal.md.html)):
 
 > I accept that, due to the nature of the information and the frequent changes
 > to it, 6 months was too long an interval to insist on between particular
@@ -263,22 +263,22 @@ of the available list rather than the register.
 **[observed]** After the system change, the same request formula met a flat
 "not held" — four times over between 2018 and 2019, with answers ranging from
 the bare refusal
-([`ofcom-612185`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-612185--unallocated-callsigns-not-held/index.html),
+([`ofcom-612185`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-612185--unallocated-callsigns-not-held/index.html),
 September 2018) —
 
 > Ofcom does not hold the information you requested.
 
 — to a fuller explanation of *why*
-([`ofcom-671462`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-671462--suffix-availability-not-held/index.html),
+([`ofcom-671462`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-671462--suffix-availability-not-held/index.html),
 February 2019):
 
 > We do not hold lists of available call signs, but instead our licensing
 > system generates them on demand.
 
 The other two of the quartet are
-[`ofcom-518689`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-518689--suffix-availability-not-held/index.html)
+[`ofcom-518689`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-518689--suffix-availability-not-held/index.html)
 (February 2018) and
-[`ofcom-632469`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-632469--suffix-availability-not-held/index.html)
+[`ofcom-632469`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-632469--suffix-availability-not-held/index.html)
 (October 2018). **[derived]** Same request, same period, answers of very
 different depth: the explanation given depended on which official replied, not
 on any change of policy — the underlying position ("no stored available list")
@@ -289,7 +289,7 @@ was constant across all four.
 **[observed]** What Ofcom *does* hold, and what its status words mean, were set
 out definitively in a September 2019 response to Roger Howell (Ofcom reference
 `756622`; browse the
-[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-596532--allocated-reserved-forbidden/raw-extract-amateur-radio-callsigns-howell.md.html)):
+[rendered letter](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-596532--allocated-reserved-forbidden/raw-extract-amateur-radio-callsigns-howell.md.html)):
 
 > 'Allocated' means that the callsign is currently assigned to a station under
 > an amateur radio licence. It is therefore not currently available for
@@ -322,7 +322,7 @@ periodically. The earliest snapshot this mirror captured is
 [`archive/2022-05-30/`](../../archive/2022-05-30/raw.csv); the FOI disclosure
 log continues in parallel, its annexes now explicitly framed as open-data
 copies (for example the March 2022 register annex
-[`ofcom-2022-03-14--available-and-registered--all-callsigns`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/ofcom-2022-03-14--available-and-registered--all-callsigns/index.html)).
+[`ofcom-2022-03-14--available-and-registered--all-callsigns`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/ofcom-2022-03-14--available-and-registered--all-callsigns/index.html)).
 **[derived]** Note what got published: the *register*, not the extinct
 available list. The 2014–15 requests that pushed hardest for publication were
 asking for the available list — a dataset class that ceased to exist in 2016 —
@@ -338,7 +338,7 @@ amateurs asking Ofcom not merely to *answer* but to *publish*. Read in order,
 the asks track the shift from wanting the available list to wanting the
 register — and it is the register ask that Ofcom acted on.
 
-**[observed]** **2014-08-26 — Mr James** ([`wdtk-224333`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-224333--available-callsigns-list/correspondence.md.html)),
+**[observed]** **2014-08-26 — Mr James** ([`wdtk-224333`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-224333--available-callsigns-list/correspondence.md.html)),
 the earliest publish-it ask this mirror holds, following his August 2014
 available-list request:
 
@@ -347,7 +347,7 @@ available-list request:
 
 **[observed]** **2015-02-06 — Mr James again**, in his internal-review request
 on the refused second attempt
-([`wdtk-247308`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-247308--available-callsigns-list/correspondence.md.html)):
+([`wdtk-247308`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-247308--available-callsigns-list/correspondence.md.html)):
 
 > I suggested in my first request for this information that you publish the up
 > to date list and I again urge you to do so. It would be a useful service to
@@ -358,7 +358,7 @@ above records that a response had been "publicly available since 19 November
 2014" on Ofcom's stakeholder FOI pages — a published copy amateurs could be
 pointed at, standing in for a maintained publication of the available list.
 
-**[observed]** **2019-09-09 — Roger Howell** ([`wdtk-596532`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-596532--allocated-reserved-forbidden/correspondence.md.html)),
+**[observed]** **2019-09-09 — Roger Howell** ([`wdtk-596532`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-596532--allocated-reserved-forbidden/correspondence.md.html)),
 the first ask for periodic release of the full *register* — the thing the
 open-data page actually publishes — following the September 2019 disclosure of
 the allocated-and-reserved list:
@@ -388,7 +388,7 @@ because it shows how long the "how do we get this data out" question has been
 live. In May 2009 Ofcom licensed the amateur-radio call-book data for reuse
 under the Re-use of Public Sector Information Regulations — a formal PSI
 licence — documented in
-[`wdtk-248271`](https://mysteraitch.github.io/amateur-callsigns-file-watch/datasets/foi/wdtk-248271--callbook-psi-licensees/index.html).
+[`wdtk-248271`](https://mysteraitch.github.io/amateur-callsigns-file-watch/v0/datasets/foi/wdtk-248271--callbook-psi-licensees/index.html).
 **[derived]** The entry records that this formal route existed from May 2009
 and was never actually used to obtain the data; the separate RSGB call-book
 arrangement ran on its own footing. The PSI licence is a road not taken — a

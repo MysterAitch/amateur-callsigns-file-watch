@@ -165,6 +165,20 @@ export interface ReprocessingStratification {
   windows: VintageWindow[];
   rows: StratRow[];
   episodes: Episode[];
+  // Substantial snapshots dated after the ceiling - the ones the report does
+  // not analyse - so the report can say which they are without a hand-kept list.
+  newerSnapshots: NewerSnapshot[];
+}
+
+// A snapshot anchored after the assertion ceiling that clears the subject
+// floor: its size (distinct subjects with a series parse) and how many of
+// those carry the touch signal (fewer than the floor, or it would have been
+// analysed and raised the ceiling).
+export interface NewerSnapshot {
+  vintage: string;
+  vintageDate: string;
+  subjects: number;
+  touchSubjects: number;
 }
 
 function sqlLiteral(value: string): string {
@@ -257,6 +271,42 @@ FROM agg WHERE n >= ${Math.trunc(params.minVintageSubjects)}
 ORDER BY vintageDate, vintage`);
 }
 
+// The substantial snapshots after the ceiling. Size is counted from the
+// series parse claim - the same subject key the base uses - because these
+// snapshots by definition lack enough touch claims to be counted by those.
+// With no ceiling (nothing analysed) there is nothing to be newer than.
+export function foldNewerSnapshots(source: string | ClaimsSource, assertionCeiling: string, params: StratParams = DEFAULT_STRAT_PARAMS): NewerSnapshot[] {
+  if (assertionCeiling === '') return [];
+  const claims = toClaimsSource(source);
+  if (!claimsSourcePresent(claims)) return [];
+  const relation = claimsRelation(claims);
+  const key = cleanedKeyExpr('rawSubject');
+  return foldQuery<NewerSnapshot>(`WITH present AS (
+  SELECT vintage, count(DISTINCT ${key}) AS subjects
+  FROM ${relation}
+  WHERE rule = '${PARSE_CALLSIGN_RULE}' AND predicate = ${sqlLiteral(PREFIX_SERIES_PREDICATE)} AND ${key} <> ''
+  GROUP BY 1
+),
+touched AS (
+  SELECT vintage, count(DISTINCT ${key}) AS touchSubjects
+  FROM ${relation}
+  WHERE rule = '${EVENT_DATE_RULE}' AND predicate = ${sqlLiteral(TOUCH_PREDICATE)} AND ${key} <> ''
+  GROUP BY 1
+),
+anchored AS (
+  SELECT p.vintage,
+         CASE WHEN length(p.vintage) = 7 THEN p.vintage || '-01' ELSE p.vintage END AS vintageDate,
+         p.subjects, coalesce(t.touchSubjects, 0) AS touchSubjects
+  FROM present p
+  LEFT JOIN touched t USING (vintage)
+  WHERE p.subjects >= ${Math.trunc(params.minVintageSubjects)}
+)
+SELECT vintage, vintageDate, subjects::BIGINT AS subjects, touchSubjects::BIGINT AS touchSubjects
+FROM anchored
+WHERE vintageDate > ${sqlLiteral(assertionCeiling)}
+ORDER BY vintageDate, vintage`);
+}
+
 // Fail loud if a month-only vintage carries a touch dated AFTER its
 // first-of-month anchor: the anchor would then wrongly push that record's touch
 // out of its own window (silently under-counting a real cohort). The corpus's
@@ -318,8 +368,9 @@ export function computeReprocessingStratification(
   }
   const windows = [...byVintage.values()].sort((a, b) => a.vintageDate.localeCompare(b.vintageDate) || a.vintage.localeCompare(b.vintage));
   const assertionCeiling = windows.reduce((max, w) => (w.vintageDate > max ? w.vintageDate : max), '');
+  const newerSnapshots = time('stratification:newer-snapshots', () => foldNewerSnapshots(claims, assertionCeiling, params));
 
-  return { params, touchKind: TOUCH_KIND, assertionCeiling, windows, rows, episodes };
+  return { params, touchKind: TOUCH_KIND, assertionCeiling, windows, rows, episodes, newerSnapshots };
 }
 
 // Classify one series' enrichment within a vintage's cohort. Small-n first: a
@@ -538,6 +589,46 @@ function renderReconciliation(strat: ReprocessingStratification): string[] {
   return lines;
 }
 
+const COUNT_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+
+// Which snapshots lie past the ceiling, how many, and how large, come from the
+// fold. The explanation of why they lack the signal is the recorded history of
+// the 2025 schema change (#911); it describes the snapshots that existed when
+// it was found and is kept as that, not re-derived.
+function renderCeilingNote(strat: ReprocessingStratification): string[] {
+  const floor = num(strat.params.minVintageSubjects);
+  const newer = strat.newerSnapshots;
+  if (strat.assertionCeiling === '') {
+    return [`No snapshot carries the \`record-last-modified\` touch signal for at least ${floor} subjects, so there is no ceiling and no window to analyse.`];
+  }
+  if (newer.length === 0) {
+    return [`No snapshot held after the ceiling has at least ${floor} subjects, so the ceiling is the newest snapshot this report could analyse.`];
+  }
+  const one = newer.length === 1;
+  const countWord = COUNT_WORDS[newer.length] ?? String(newer.length);
+  const sizes = newer.map(s => s.subjects);
+  const low = Math.min(...sizes);
+  const high = Math.max(...sizes);
+  const size = one ? `${num(low)} subjects` : `${low === high ? num(low) : `${num(low)}–${num(high)}`} subjects each`;
+  const anyTouched = newer.some(s => s.touchSubjects > 0);
+  const why = !anyTouched
+    ? `${one ? 'is absent because it carries' : 'are absent because they carry'} no \`record-last-modified\` touch signal at all`
+    : one
+      ? `is absent because it carries the \`record-last-modified\` touch signal for only ${num(newer[0].touchSubjects)} subjects, fewer than the ${floor} needed`
+      : `are absent because each carries the \`record-last-modified\` touch signal for fewer than ${floor} subjects (${newer.map(s => `${s.vintage}: ${s.touchSubjects === 0 ? 'none' : num(s.touchSubjects)}`).join(', ')})`;
+  return [
+    `The ceiling is NOT the newest snapshot held. ${countWord} newer snapshot${one ? '' : 's'}`,
+    `of at least ${floor} subjects (${newer.map(s => s.vintage).join(', ')}; ${size})`,
+    `${why}.`,
+    'When this was first found, the open-data lane had stopped populating',
+    '`created_date` / `last_modified_date` after 2025-06-04 (the columns are present',
+    'but blank) and populated the licence-version date family instead, while the',
+    '2025-09-11 FOI export renders a licence-scoped last-modified, a different kind.',
+    'That schema evolution is itself a finding, tracked as its own issue (#911);',
+    'this report is honestly bounded at the signal, not the corpus.',
+  ];
+}
+
 export function renderReprocessingStratification(strat: ReprocessingStratification): string {
   const p = strat.params;
   const lines: string[] = [
@@ -558,16 +649,7 @@ export function renderReprocessingStratification(strat: ReprocessingStratificati
     '',
     `_Corpus assertion ceiling: ${strat.assertionCeiling || '—'} (the latest snapshot carrying the touch signal; this report carries no build-time date)._`,
     '',
-    'The ceiling is NOT the newest snapshot held. Four newer full exports',
-    '(2025-09-11, 2025-11-11, 2026-01-14, 2026-06-23; 146k–160k subjects each)',
-    'are absent because they no longer carry the `record-last-modified` touch',
-    'signal at all: the open-data lane stopped populating `created_date` /',
-    '`last_modified_date` after 2025-06-04 (the columns are present but blank)',
-    'and now populates the licence-version date family instead, while the sole',
-    'later FOI export (2025-09-11) renders a licence-scoped last-modified, a',
-    'different kind. That schema evolution is itself a finding, tracked as its',
-    'own issue (#911); this report is honestly bounded at the signal, not the',
-    'corpus.',
+    ...renderCeilingNote(strat),
     '',
     '## Method and pinned conventions',
     '',

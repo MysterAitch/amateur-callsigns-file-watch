@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 import { enhance } from './entry-browser.js';
 
 // The coordinated entry-page browser (entry-browser.js) opens the combined
@@ -193,8 +195,69 @@ describe('entry-browser inbound callsign links (#594)', { tags: ['ui'] }, () => 
     // The cleaned column IS the register's own callsign (the artefact-stripped
     // join key), so it now links to its canonical per-callsign page.
     const cleanedLink = section.querySelector('td a.callsign-pill');
-    expect(cleanedLink?.getAttribute('href')).toBe('callsign.html?c=M7TEE');
+    // With no injected site root the href is anchored at the module's own
+    // directory (callsign.html is served beside entry-browser.js), so it is the
+    // exact absolute URL, not merely an absolute-looking one: a root one level
+    // too high or too low must fail here.
+    expect(cleanedLink?.getAttribute('href')).toBe(new URL('callsign.html?c=M7TEE', new URL('./entry-browser.js', import.meta.url)).href);
     expect(cleanedLink?.textContent).toBe('M7TEE');
+  });
+
+  // The entry pages sit three directories below the site root
+  // (datasets/open-data/<date>/index.html), so a bare relative href resolved
+  // under the entry's own directory and 404ed on the live site. The site root
+  // is injected here so the assertion is "a reader on that page lands on the
+  // site's callsign page", not a string comparison.
+  const NESTED_PAGE = 'https://example.test/v0/datasets/open-data/2026-06-23/index.html';
+  const CALLSIGN_PAGE = 'https://example.test/v0/callsign.html';
+
+  it('EntryBrowserRow_CleanedLinkOnAPageThreeDirectoriesDeep_ResolvesToTheSiteRootCallsignPage', async () => {
+    const section = buildScaffold();
+    const row = { callsign: 'M7TEE', cleaned: 'M7TEE', status: 'Allocated', product: '', implied_class: 'Full', prefix_series: 'M7' };
+    enhance(section, { openCombined: () => Promise.resolve(rowWorker(row)), callsignPage: CALLSIGN_PAGE });
+    await flush();
+
+    const href = section.querySelector('td a.callsign-pill')?.getAttribute('href') ?? '';
+    expect(new URL(href, NESTED_PAGE).href).toBe('https://example.test/v0/callsign.html?c=M7TEE');
+  });
+
+  it('EntryBrowserRow_CleanedCallsignWithASpace_IsEncodedAndStillResolvesToTheSiteRootPage', async () => {
+    const section = buildScaffold();
+    const row = { callsign: 'M7 TEE', cleaned: 'M7 TEE', status: 'Allocated', product: '', implied_class: '', prefix_series: '' };
+    enhance(section, { openCombined: () => Promise.resolve(rowWorker(row)), callsignPage: CALLSIGN_PAGE });
+    await flush();
+
+    const href = section.querySelector('td a.callsign-pill')?.getAttribute('href') ?? '';
+    expect(new URL(href, NESTED_PAGE).href).toBe('https://example.test/v0/callsign.html?c=M7%20TEE');
+  });
+
+  it('EntryBrowserRow_BlankCallsign_RendersLabelledBlanksAndNoLinkToNowhere', async () => {
+    // The register carries rows whose callsign cell is blank (the "unkeyable"
+    // rows of the glossary). They sort first, so a blank row used to fill the
+    // opening page with empty pills linking to callsign.html?c=.
+    const section = buildScaffold();
+    const row = { callsign: '', cleaned: '', status: 'Allocated', product: '', implied_class: '', prefix_series: '' };
+    enhance(section, { openCombined: () => Promise.resolve(rowWorker(row)), callsignPage: CALLSIGN_PAGE });
+    await flush();
+
+    expect(section.querySelectorAll('td a.callsign-pill').length).toBe(0);
+    const blanks = [...section.querySelectorAll('td .cs-blank')].map(n => n.textContent);
+    expect(blanks).toEqual(['(blank)', '(blank)']);
+    expect(section.querySelector('a[href$="callsign.html?c="]')).toBeNull();
+  });
+
+  it('EntryBrowserModule_ServedBesideCallsignPage_SoTheDefaultCallsignPageUrlIsReal', () => {
+    // The default callsign page URL is derived from the module's own location,
+    // which is only right while entry-browser.js and callsign.html share a
+    // directory. The generated entry pages load the module from the site root
+    // (three directories up), and callsign.html lives in that same root.
+    const generator = fs.readFileSync(path.join('src', 'ci', 'build-dataset-pages.ts'), 'utf8');
+    expect(generator).toContain('src="../../../entry-browser.js"');
+    const entryPage = 'datasets/open-data/2026-06-23/index.html';
+    const loaded = path.posix.normalize(path.posix.join(path.posix.dirname(entryPage), '../../../entry-browser.js'));
+    expect(loaded).toBe('entry-browser.js');
+    expect(fs.existsSync(path.join('site', 'entry-browser.js'))).toBe(true);
+    expect(fs.existsSync(path.join('site', 'callsign.html'))).toBe(true);
   });
 
   it('EntryBrowserRow_RawCallsignColumn_RemainsANonLinkChip', async () => {
