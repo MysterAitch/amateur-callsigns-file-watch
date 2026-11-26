@@ -485,10 +485,13 @@ describe('Callsign page: structure and wording', { tags: ['ui'] }, () => {
     expect(doc.querySelectorAll('h1').length).toBe(1);
   });
 
-  it('CallsignSections_SectionTitles_AreExposedAsLevelTwoHeadingsNamedByTheirTitleAlone', () => {
+  it('CallsignSections_SectionTitles_AreLevelTwoHeadingElementsNamedByTheirTitleAlone', () => {
+    // Real heading elements, as on every other page (shell.css, "section
+    // label"), not divs given the heading role.
     const root = render(CURRENT_RECORD(), ARCHIVE, 'G3UO');
-    const names = [...root.querySelectorAll('[role="heading"][aria-level="2"]')].map((h) => h.getAttribute('aria-label') ?? (h.textContent ?? '').trim());
+    const names = [...root.querySelectorAll('h2.lbl')].map((h) => h.getAttribute('aria-label') ?? (h.textContent ?? '').trim());
     expect(names).toEqual(['the evidence', 'what happened', 'anatomy', 'record fidelity']);
+    expect(root.querySelectorAll('[role="heading"]')).toHaveLength(0);
   });
 
   it('EvidenceDial_WhenMounted_IsNamedButNotATabStopUntilItIsKnownToScroll', () => {

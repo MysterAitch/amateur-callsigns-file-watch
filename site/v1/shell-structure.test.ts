@@ -175,13 +175,7 @@ describe('v1 shell - headings on every page', { tags: ['ui'] }, () => {
   beforeEach(() => { document.body.replaceChildren(); });
 
   it('V1Pages_AsServed_GiveAnOutlineOfSectionHeadingsUnderOneTitle', () => {
-    // The look-up page's title is the callsign, so it is written by the script;
-    // as served it has none yet.
-    for (const page of PAGES) {
-      const doc = parse(read(page));
-      const expectedH1 = page === 'callsign.html' ? null : 1;
-      expect(outlineFaults(doc.body, { h1: expectedH1 }), page).toEqual([]);
-    }
+    for (const page of PAGES) expect(outlineFaults(parse(read(page)).body, { h1: 1 }), page).toEqual([]);
   });
 
   it('HomePage_WhenItsScriptRendersTheSections_EverySectionLabelIsAHeading', () => {
