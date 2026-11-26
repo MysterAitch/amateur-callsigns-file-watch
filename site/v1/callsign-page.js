@@ -21,7 +21,7 @@
 
 import { renderSiteBar, renderBreadcrumb, renderFooter, mountInto, SHARED_MODULE_BASE } from './shell.js';
 import { V1_COPY } from './copy.js';
-import { buildCallsignModel, renderCallsignSections, describeLookupInput, callsignPageTitle, boundedQuery, lookupShape, lookupLabel, syncScrollerFocus } from './callsign-sections.js';
+import { buildCallsignModel, renderCallsignSections, describeLookupInput, callsignPageTitle, boundedQuery, lookupShape, lookupLabel, syncScrollerFocus, openAtNewestEnd } from './callsign-sections.js';
 import { wireTermPopovers } from './glossary.js';
 
 // The prefix-sharded static data, deployed at the root beside this page.
@@ -97,12 +97,15 @@ async function fetchNewestRegister() {
 }
 
 /**
- * Re-checks after layout, and on every resize, whether each dial scrolls and so
- * should take keyboard focus (syncScrollerFocus).
+ * Opens each dial's scale at its newest end, then re-checks after layout, and
+ * on every resize, whether it scrolls and so should take keyboard focus
+ * (syncScrollerFocus).
  * @param {Document} doc
  */
 function syncDialFocus(doc) {
-  const sync = () => { for (const dial of doc.querySelectorAll('.dial')) syncScrollerFocus(dial); };
+  const scrollers = () => doc.querySelectorAll('.dial-scroll');
+  for (const scroller of scrollers()) openAtNewestEnd(scroller);
+  const sync = () => { for (const scroller of scrollers()) syncScrollerFocus(scroller); };
   sync();
   window.addEventListener('resize', sync);
 }

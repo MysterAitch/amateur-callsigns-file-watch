@@ -66,7 +66,10 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 /* The breadcrumb is subordinate depth-chrome, so it stays quieter than the
    primary nav — but nudged off the 11.5px floor to a steadier 12.5px (issue
    #921, C3). */
-.crumbs{font-family:var(--mono);font-size:12.5px;color:var(--muted);padding:.6rem 0 0;letter-spacing:.02em}
+/* Breadcrumb, status line, callsign heading and notes can all echo a visitor's
+   own query, and a long unbroken one widened the page by thousands of pixels:
+   each breaks anywhere rather than overflow. */
+.crumbs{font-family:var(--mono);font-size:12.5px;color:var(--muted);padding:.6rem 0 0;letter-spacing:.02em;overflow-wrap:anywhere}
 .crumbs a{color:var(--muted)}.crumbs a:hover{color:var(--signal)}
 .crumbs b{color:var(--ink);font-weight:600}
 .crumbs .arw{color:var(--line-2);padding:0 .35rem}
@@ -85,7 +88,7 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .lbl .ax{color:var(--signal-strong);border:1px solid var(--signal-dim);background:var(--signal-tint);
   border-radius:2px;padding:.1rem .4rem;font-size:10px;letter-spacing:.06em}
 .lbl::after{content:"";flex:1;height:1px;background:var(--line)}
-.note{color:var(--ink-2);font-size:.92rem;margin:.1rem 0 .9rem}
+.note{color:var(--ink-2);font-size:.92rem;margin:.1rem 0 .9rem;overflow-wrap:anywhere}
 .note:last-child{margin-bottom:.1rem}
 
 /* ---- HERO: the lookup act as the site's thesis ---- */
@@ -283,7 +286,9 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 
 /* ---- fast-answer head / status row (callsign) ---- */
 .cshead .ey{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.cshead h1{margin:.35rem 0 0;font-family:var(--mono);font-size:3.1rem;letter-spacing:.06em;font-weight:600;line-height:1;color:var(--ink)}
+.cshead h1{margin:.35rem 0 0;font-family:var(--mono);font-size:3.1rem;letter-spacing:.06em;font-weight:600;line-height:1;color:var(--ink);overflow-wrap:anywhere}
+/* The currency and "you entered" notes beneath the status grid. */
+.cshead .note{margin-top:.75rem}
 .status-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin:1.15rem 0 0}
 .status-row .c{background:var(--panel);padding:.75rem .9rem}
 .status-row .k{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
@@ -301,6 +306,8 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .tl .track::before{content:"";position:absolute;left:-.44rem;top:.18rem;width:.72rem;height:.72rem;border-radius:50%;
   background:var(--signal);border:2px solid var(--panel);box-shadow:0 0 0 1px var(--signal-dim)}
 .tl.state .track::before{background:var(--ok);box-shadow:0 0 0 1px #9dcbb2}
+/* A last-recorded state is not current; see the dial's state terminus. */
+.tl.state[data-currency="last-recorded"] .track::before{background:var(--panel);box-shadow:0 0 0 2px var(--ink-2)}
 .tl.context .track::before{background:var(--panel);box-shadow:0 0 0 1px var(--signal-dim)}
 .tl .ttl{font-weight:600;color:var(--ink);font-size:1rem}
 .tl .by{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.02em;font-weight:400}
@@ -353,15 +360,18 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
    assertion scale calibration (lower, grey). Ported from
    green-field mockup D into B-light tokens (issue #921).
    ============================================================ */
-/* On a narrow viewport the instrument stays wider than the panel (min-width:600px
-   below) and scrolls horizontally. Rather than leave that scroll invisible, edge
-   shadows signal there is more content off each side and fade away once that end
-   is reached — the classic background-attachment:local scroll cue, dependency-
-   free: the panel-coloured cover layers scroll WITH the content and mask the
-   shadow at whichever end is fully in view, while the grey shadow layers stay put
-   (issue #921, A5). Momentum scrolling on touch. */
 .dial{border:1px solid var(--line);border-radius:3px;padding:1.05rem 1.2rem 1rem;margin-top:.7rem;
-  overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+  background-color:var(--bg-2);box-shadow:inset 0 1px 2px rgba(17,24,35,.05)}
+/* On a narrow viewport the scale stays wider than the panel (min-width:600px
+   below) and scrolls horizontally inside .dial-scroll, which wraps the scale
+   alone: the track labels, clock buttons and legend around it stay in view.
+   Rather than leave that scroll invisible, edge shadows signal there is more
+   content off each side and fade away once that end is reached - the classic
+   background-attachment:local scroll cue, dependency-free: the ground-coloured
+   cover layers scroll WITH the content and mask the shadow at whichever end is
+   fully in view, while the grey shadow layers stay put (issue #921, A5).
+   Momentum scrolling on touch. */
+.dial-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
   background-color:var(--bg-2);
   background-image:
     linear-gradient(to right,var(--bg-2),rgba(228,233,239,0) 2.5rem),
@@ -371,8 +381,8 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
   background-position:0 0,100% 0,0 0,100% 0;
   background-repeat:no-repeat;
   background-size:2.5rem 100%,2.5rem 100%,1.1rem 100%,1.1rem 100%;
-  background-attachment:local,local,scroll,scroll;
-  box-shadow:inset 0 1px 2px rgba(17,24,35,.05)}
+  background-attachment:local,local,scroll,scroll}
+.dial-scroll:focus-visible{outline:2px solid var(--signal);outline-offset:2px;border-radius:2px}
 .tracklab{display:flex;align-items:baseline;gap:.5rem;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.45}
 .tracklab .sw{width:.9rem;height:.16rem;display:inline-block;flex:none;position:relative;top:-.16rem}
 .tracklab.event{color:var(--signal-strong)}
@@ -394,7 +404,10 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
    --tier-step is how far each near-dated separation tier lifts a marker. */
 .scale{position:relative;min-width:600px;height:var(--scale-h,210px);margin:.1rem 0 .2rem;--tier-step:34px}
 .scale .axis{position:absolute;left:0;right:0;top:var(--axis-top,136px);height:2px;background:var(--ink-2)}
-.scale .yr{position:absolute;top:calc(var(--axis-top,136px) + 7px);transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--muted)}
+/* A year label carries a ground-coloured plate above the sighting stems, so a
+   stem that falls at a labelled year passes behind the label, never through it. */
+.scale .yr{position:absolute;top:calc(var(--axis-top,136px) + 7px);transform:translateX(-50%);font-family:var(--mono);font-size:11px;color:var(--muted);
+  background:var(--bg-2);padding:0 2px;z-index:1}
 .scale .yr::before{content:"";position:absolute;top:-9px;left:50%;width:1px;height:7px;background:var(--line-2)}
 /* event markers point UP from the axis — primary reading, teal. --tier lifts a
    near-dated marker by whole steps; a flat marker carries tier 0. */
@@ -420,6 +433,15 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .scale .ev[data-edge="r"] .vstack{transform:translateX(-100%);left:1px;align-items:flex-end}
 .scale .ev.state .stem,.scale .ev.state .dot{background:var(--ok)}
 .scale .ev.state .cap{color:var(--ok)}
+/* Green means current: the status from the newest register snapshot held. A
+   status recorded only in an older snapshot, or one that could not be checked
+   against the newest (data-currency="last-recorded", set by the page script on
+   the terminus, its rail entry and its legend sample alike), is drawn neutral
+   and hollow instead. Its label says "last recorded" in words, which stay the
+   primary cue. */
+.scale .ev.state[data-currency="last-recorded"] .stem{background:var(--muted)}
+.scale .ev.state[data-currency="last-recorded"] .dot{background:var(--panel);border:2px solid var(--ink-2)}
+.scale .ev.state[data-currency="last-recorded"] .cap{color:var(--ink-2)}
 /* a disputed single marker reads hollow — a held vintage asserts a competing
    date for its kind, so the diamond is outlined (in the kind tint where set)
    rather than filled (issue #921). The leading caption swatch carries the kind
@@ -452,9 +474,12 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
    track follows it and the pips stay joined to the axis rather than detaching at
    the old compact height (issue #921). */
 .scale .si{position:absolute;top:var(--axis-top,136px)}
-.scale .si .stem{position:absolute;top:0;left:-.5px;width:1px;height:20px;background:var(--line-2)}
-.scale .si .pip{position:absolute;top:18px;left:-3px;width:6px;height:6px;border-radius:50%;background:var(--muted)}
-.scale .si .cap{position:absolute;top:28px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
+/* The pips hang BELOW the year-label band (which starts 7px under the axis and
+   is one 11px line deep): hung at 18px they were drawn through "2024" and
+   "2026" on a record sighted in those years. */
+.scale .si .stem{position:absolute;top:0;left:-.5px;width:1px;height:28px;background:var(--line-2)}
+.scale .si .pip{position:absolute;top:26px;left:-3px;width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.scale .si .cap{position:absolute;top:36px;transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);
   font-size:10px;color:var(--muted)}
 .scale.dim-assert .si{opacity:.16}
 .scale.dim-event .ev{opacity:.16}
@@ -515,6 +540,7 @@ nav.journeys .sep{color:var(--line-2);padding:0 .05rem;user-select:none}
 .dial-legend .dl-mk.ev{background:var(--signal);transform:rotate(45deg)}
 .dial-legend .dl-mk.si{background:var(--muted);border-radius:50%;width:.5rem;height:.5rem}
 .dial-legend .dl-mk.state{background:var(--ok);border-radius:50%}
+.dial-legend .dl-mk.state[data-currency="last-recorded"]{background:var(--panel);border:2px solid var(--ink-2)}
 .dial-legend .dl-mk.disputed{background:var(--panel);border:1.5px solid var(--signal);transform:rotate(45deg)}
 .dial-legend .dl-sw{flex:0 0 auto;position:relative;top:.05em;width:.6rem;height:.6rem;border-radius:1px;display:inline-block;background:var(--kt,var(--muted))}
 
@@ -588,7 +614,7 @@ details.fold .b p:last-child{margin-bottom:0}
 .sitefoot .foot-prov b{color:var(--ink);font-weight:600}
 
 /* ---- lookup status / alerts ---- */
-.status-line{margin:.9rem 0 0;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.status-line{margin:.9rem 0 0;font-family:var(--mono);font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 .alert{margin:.9rem 0 0;border:1px solid var(--warn-line);border-left:3px solid var(--warn);background:var(--warn-tint);
   padding:.7rem .9rem;font-size:.92rem;color:var(--ink)}
 .callout{border:1px solid var(--warn-line);border-left:3px solid var(--warn);background:var(--warn-tint);

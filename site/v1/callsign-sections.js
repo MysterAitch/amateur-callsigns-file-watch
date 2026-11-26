@@ -916,6 +916,16 @@ export function syncScrollerFocus(scroller) {
   else scroller.removeAttribute('tabindex');
 }
 
+// The dial's scale reads left to right from the earliest year, and its newest
+// reading (the state terminus) is at the right-hand end. A scale that scrolls
+// opened at the earliest year, so on a phone the status the page is about began
+// off-screen. Call once after layout, not on resize, so a reader's own
+// scrolling is never undone.
+/** @param {Element} scroller */
+export function openAtNewestEnd(scroller) {
+  scroller.scrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+}
+
 // Marks a state terminus whose status is not the newest register snapshot's own, so
 // the stylesheet can draw it apart from a current one; the label already says so
 // in words, which stay the primary cue.
@@ -1174,18 +1184,21 @@ function buildDialLegend(present) {
   legend.setAttribute('role', 'group');
   legend.setAttribute('aria-label', V1_COPY.callsign.dial.legendLabel);
   legend.appendChild(el('span', 'dl-lbl', V1_COPY.callsign.dial.legendLabel));
-  /** @param {string} markCls @param {string} text */
+  /** @param {string} markCls @param {string} text @returns {HTMLElement} the marker sample */
   const item = (markCls, text) => {
     const it = el('span', 'dl-item');
-    it.appendChild(el('span', `dl-mk ${markCls}`));
+    const mk = el('span', `dl-mk ${markCls}`);
+    it.appendChild(mk);
     it.append(` ${text}`);
     legend.appendChild(it);
+    return mk;
   };
   if (present.hasEvents) item('ev', V1_COPY.callsign.dial.legendEvent);
   if (present.hasSightings) item('si', V1_COPY.callsign.dial.legendSighting);
   if (present.hasState) {
     const d = V1_COPY.callsign.dial;
-    item('state', present.stateIsCurrent ? d.legendState : present.stateChecked ? d.legendLastRecordedState : d.legendUncheckedState);
+    // The sample is drawn like the terminus it decodes.
+    markStateCurrency(item('state', present.stateIsCurrent ? d.legendState : present.stateChecked ? d.legendLastRecordedState : d.legendUncheckedState), present.stateIsCurrent);
   }
   if (present.hasDisputed) item('disputed', V1_COPY.callsign.dial.legendDisputed);
   const kindNames = V1_COPY.callsign.dial.kindLegend;
@@ -1229,10 +1242,6 @@ function mountEvidenceDial(host, model) {
   surface.appendChild(el('p', 'note dial-example', V1_COPY.callsign.dial.microExample));
 
   const dial = el('div', 'dial');
-  // A name for the instrument; whether it takes keyboard focus depends on
-  // whether it scrolls at the current width (syncScrollerFocus).
-  dial.setAttribute('role', 'group');
-  dial.setAttribute('aria-label', V1_COPY.callsign.dial.scrollerLabel);
 
   // Upper track label + gloss (verbatim).
   const evLab = el('div', 'tracklab event');
@@ -1374,7 +1383,16 @@ function mountEvidenceDial(host, model) {
       : fillTemplate(V1_COPY.callsign.dial.tooltipSightingNoTitle, { vintage: si.vintage }));
     scale.appendChild(marker);
   }
-  dial.appendChild(scale);
+  // Only the scale scrolls on a narrow screen. When the whole instrument was the
+  // scroller, opening it at its newest end pushed the track labels, the clock
+  // buttons and the legend out of view to the left. The scroller is named; it
+  // takes keyboard focus only while it scrolls (syncScrollerFocus) and opens at
+  // its newest end (openAtNewestEnd), both from the page script after layout.
+  const scroller = el('div', 'dial-scroll');
+  scroller.setAttribute('role', 'group');
+  scroller.setAttribute('aria-label', V1_COPY.callsign.dial.scrollerLabel);
+  scroller.appendChild(scale);
+  dial.appendChild(scroller);
 
   // Lower track label + gloss (verbatim).
   const asLab = el('div', 'tracklab assert');

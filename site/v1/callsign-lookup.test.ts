@@ -14,6 +14,7 @@ import {
   boundedQuery,
   callsignPageTitle,
   syncScrollerFocus,
+  openAtNewestEnd,
   QUERY_DISPLAY_MAX,
 } from './callsign-sections.js';
 // The real shared functions the deployed page loads at runtime, so the
@@ -471,6 +472,21 @@ describe('Callsign page: a status against the newest register snapshot held', { 
     expect(render(CURRENT, ARCHIVE, 'G3UO').querySelector('.scale .ev.state .cap')?.textContent ?? '').toContain('current state');
   });
 
+  // The terminus, its rail entry and its legend sample are marked together, so
+  // the stylesheet can draw all three apart from a current state.
+  for (const [name, record, newest, marked] of [
+    ['StatusOnlyFromAnOldRegister', STALE, NEWEST, true],
+    ['HoldingsCouldNotBeRead', CURRENT, null, true],
+    ['StatusFromTheNewestRegister', CURRENT, NEWEST, false],
+  ] as const) {
+    it(`StateMarks_${name}_${marked ? 'AreAllMarkedLastRecorded' : 'AreNoneMarkedLastRecorded'}`, () => {
+      const root = render(record, ARCHIVE, 'G3UO', newest);
+      const marks = ['.scale .ev.state', '.tl.state', '.dial-legend .dl-mk.state'].map((sel) => root.querySelector(sel));
+      expect(marks.every((m) => m !== null)).toBe(true);
+      expect(marks.map((m) => m?.getAttribute('data-currency') ?? null)).toEqual(marks.map(() => (marked ? 'last-recorded' : null)));
+    });
+  }
+
   it('StateTerminus_NewerPoolSightingThanTheStatusRegister_IsDatedByTheRegisterThatGaveTheStatus', () => {
     const archive = manifestOf([dataset(0, '2016-09-20', ['register-snapshot'], 'a', 139758), dataset(1, '2020-01-01', ['available-pool'], 'p', 9000), dataset(2, '2026-09-22', ['register-snapshot'], 'b', 163342)]);
     expect(currentStateNode(modelFor({ h: 'OA.', l: { d: 0, s: ['O'] } }, archive, 'G3UO'))?.day).toBe('2016-09-20');
@@ -491,15 +507,44 @@ describe('Callsign page: structure and wording', { tags: ['ui'] }, () => {
     expect(names).toEqual(['the evidence', 'what happened', 'anatomy', 'record fidelity']);
   });
 
-  it('EvidenceDial_WhenMounted_IsNamedButNotATabStopUntilItIsKnownToScroll', () => {
+  it('EvidenceDial_WhenMounted_ItsScaleScrollerIsNamedButNotATabStopUntilItIsKnownToScroll', () => {
+    const scroller = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('.dial-scroll');
+    expect(scroller?.getAttribute('aria-label') ?? '').not.toBe('');
+    expect(scroller?.hasAttribute('tabindex')).toBe(false);
+  });
+
+  it('EvidenceDial_OnANarrowScreen_ScrollsOnlyItsScaleSoTheLabelsButtonsAndLegendStayInView', () => {
+    // When the whole instrument scrolled, opening it at its newest end pushed the
+    // track labels, the clock buttons and the legend off to the left.
     const dial = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('.dial');
-    expect(dial?.getAttribute('aria-label') ?? '').not.toBe('');
+    const scroller = dial?.querySelector('.dial-scroll');
+    expect(scroller).not.toBeNull();
+    expect([...(scroller?.children ?? [])].map((c) => c.className)).toEqual(['scale']);
+    for (const sel of ['.tracklab', '.dial-ctl', '.dial-legend', '.dial-note']) {
+      expect(dial?.querySelector(sel), sel).not.toBeNull();
+      expect(scroller?.querySelector(sel), sel).toBeNull();
+    }
     expect(dial?.hasAttribute('tabindex')).toBe(false);
   });
 
+  for (const [scrollWidth, clientWidth, opensAt] of [[638, 291, 347], [940, 940, 0], [600, 940, 0]] as const) {
+    it(`DialScroller_ContentWidth${scrollWidth}InABox${clientWidth}Wide_OpensScrolledTo${opensAt}`, () => {
+      // The newest reading (the state terminus) is at the right-hand end, so a
+      // scrolling scale opens there rather than at the earliest year.
+      const scroller = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('.dial-scroll');
+      if (scroller === null) throw new Error('no dial scroller');
+      Object.defineProperty(scroller, 'scrollWidth', { value: scrollWidth });
+      Object.defineProperty(scroller, 'clientWidth', { value: clientWidth });
+      // jsdom does no layout, so scrolling is a plain property here.
+      Object.defineProperty(scroller, 'scrollLeft', { value: 0, writable: true });
+      openAtNewestEnd(scroller);
+      expect(scroller.scrollLeft).toBe(opensAt);
+    });
+  }
+
   for (const [scrollWidth, clientWidth, focusable] of [[638, 291, true], [940, 940, false], [600, 940, false]] as const) {
     it(`ScrollerFocus_ContentWidth${scrollWidth}InABox${clientWidth}Wide_${focusable ? 'TakesKeyboardFocus' : 'IsNoTabStop'}`, () => {
-      const dial = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('.dial');
+      const dial = render(CURRENT_RECORD(), ARCHIVE, 'G3UO').querySelector('.dial-scroll');
       if (dial === null) throw new Error('no dial');
       dial.setAttribute('tabindex', '0');
       Object.defineProperty(dial, 'scrollWidth', { value: scrollWidth });
